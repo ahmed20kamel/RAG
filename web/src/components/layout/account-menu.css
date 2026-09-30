@@ -1,0 +1,186 @@
+/* The account control in the top bar and its panel. Logical properties only, so the
+ * panel hangs off the correct edge in both directions.
+ */
+
+.account-menu {
+  position: relative;
+  flex: none;
+}
+
+.account-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-inline-size: 14rem;
+  padding: 0.25rem var(--space-2) 0.25rem 0.25rem;
+  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  transition:
+    background var(--duration-fast) var(--ease),
+    border-color var(--duration-fast) var(--ease),
+    color var(--duration-fast) var(--ease);
+}
+
+[dir='rtl'] .account-menu__trigger {
+  padding: 0.25rem 0.25rem 0.25rem var(--space-2);
+}
+
+.account-menu__trigger:hover,
+.account-menu__trigger[aria-expanded='true'] {
+  background: var(--surface-hover);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+.account-menu__avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 1.875rem;
+  block-size: 1.875rem;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.account-menu__label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-menu__caret {
+  flex: none;
+  color: var(--text-tertiary);
+}
+
+/* Panel ------------------------------------------------------------------- */
+.account-menu__panel {
+  position: absolute;
+  inset-block-start: calc(100% + var(--space-2));
+  inset-inline-end: 0;
+  inline-size: 16rem;
+  max-inline-size: calc(100vw - var(--space-6));
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-drawer);
+  overflow: hidden;
+  animation: account-menu-in var(--duration-fast) var(--ease);
+}
+
+@keyframes account-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+  }
+}
+
+.account-menu__identity {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border-block-end: 1px solid var(--border);
+}
+
+.account-menu__name {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+/* The address is Latin even in the Arabic interface, so it is isolated rather than
+ * reordered around its dots and @. */
+.account-menu__email {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  unicode-bidi: isolate;
+  overflow-wrap: anywhere;
+}
+
+.account-menu__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-block-start: var(--space-1);
+}
+
+.account-menu__team {
+  font-size: var(--text-2xs);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.account-menu__items {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-1);
+}
+
+.account-menu__item {
+  display: flex;
+  align-items: center;
+  inline-size: 100%;
+  min-block-size: 2.25rem;
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  text-align: start;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition:
+    background var(--duration-fast) var(--ease),
+    color var(--duration-fast) var(--ease);
+}
+
+.account-menu__item:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.account-menu__item:disabled {
+  opacity: 0.5;
+}
+
+.account-menu__item--danger {
+  color: var(--danger);
+}
+
+.account-menu__item--danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.account-password {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Below this the bar is tight, so only the initials remain. */
+@media (max-width: 47.99rem) {
+  .account-menu__label,
+  .account-menu__caret {
+    display: none;
+  }
+
+  .account-menu__trigger {
+    padding: 0.25rem;
+  }
+
+  [dir='rtl'] .account-menu__trigger {
+    padding: 0.25rem;
+  }
+}

@@ -1,0 +1,192 @@
+/* Design tokens.
+ *
+ * One scale for space, one for radius, one for type. Every colour is defined here in
+ * the light palette and redefined once for dark, so no component ever hard-codes a
+ * colour and a theme switch cannot leave half the interface behind.
+ */
+
+:root {
+  /* Type ------------------------------------------------------------------ */
+  --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-arabic: 'Segoe UI', 'Noto Sans Arabic', 'Tahoma', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', ui-monospace, 'Courier New', monospace;
+
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+
+  --leading-tight: 1.25;
+  --leading-snug: 1.45;
+  --leading-normal: 1.7;
+  --leading-relaxed: 1.9;
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Space ----------------------------------------------------------------- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* Shape ----------------------------------------------------------------- */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 999px;
+
+  /* Motion ---------------------------------------------------------------- */
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+
+  /* Layout ---------------------------------------------------------------- */
+  --rail-width: 15.5rem;
+  --rail-width-collapsed: 4rem;
+  --topbar-height: 3.5rem;
+  --content-max: 52rem;
+  --z-sticky: 20;
+  --z-drawer: 40;
+  --z-modal: 60;
+  --z-toast: 80;
+
+  /* Colour — light -------------------------------------------------------- */
+  --canvas: #f7f8fa;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f1f3f6;
+  --surface-hover: #f3f4f7;
+  --surface-active: #e9ebf0;
+
+  --border: #e3e6ec;
+  --border-strong: #cdd2dc;
+  --border-focus: #4f6bed;
+
+  --text-primary: #12141a;
+  --text-secondary: #545a68;
+  --text-tertiary: #858c9c;
+  --text-inverse: #ffffff;
+
+  --accent: #3d5ce8;
+  --accent-hover: #3550d4;
+  --accent-soft: #eaeeff;
+  --accent-text: #2d44b8;
+
+  --success: #12855c;
+  --success-soft: #e2f5ec;
+  --warning: #9a6200;
+  --warning-soft: #fdf1dc;
+  --danger: #c4344a;
+  --danger-soft: #fdeaed;
+  --info: #0f6f9e;
+  --info-soft: #e3f2fa;
+
+  --shadow-xs: 0 1px 2px rgba(16, 20, 32, 0.05);
+  --shadow-sm: 0 1px 3px rgba(16, 20, 32, 0.07), 0 1px 2px rgba(16, 20, 32, 0.04);
+  --shadow-md: 0 4px 12px rgba(16, 20, 32, 0.08), 0 1px 3px rgba(16, 20, 32, 0.04);
+  --shadow-lg: 0 12px 32px rgba(16, 20, 32, 0.12), 0 2px 8px rgba(16, 20, 32, 0.06);
+
+  --skeleton-base: #e9ebf0;
+  --skeleton-shine: #f4f5f8;
+}
+
+/* Colour — dark. Only the palette is redefined; every scale above is shared. */
+:root[data-theme='dark'] {
+  --canvas: #0c0e13;
+  --surface: #14171e;
+  --surface-raised: #1a1e26;
+  --surface-sunken: #101318;
+  --surface-hover: #1e222b;
+  --surface-active: #262b35;
+
+  --border: #252a34;
+  --border-strong: #363d4a;
+  --border-focus: #7b90ff;
+
+  --text-primary: #eef0f4;
+  --text-secondary: #a4acbc;
+  --text-tertiary: #6f7889;
+  --text-inverse: #0c0e13;
+
+  --accent: #6b85ff;
+  --accent-hover: #8298ff;
+  --accent-soft: #1b2140;
+  --accent-text: #9cadff;
+
+  --success: #3ec78d;
+  --success-soft: #10291f;
+  --warning: #e0a44a;
+  --warning-soft: #2b2113;
+  --danger: #f2788c;
+  --danger-soft: #2e1519;
+  --info: #57b4dd;
+  --info-soft: #102530;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.4);
+
+  --skeleton-base: #1e222b;
+  --skeleton-shine: #272c36;
+}
+
+/* Until a theme is chosen the system decides, so the first paint already matches. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --canvas: #0c0e13;
+    --surface: #14171e;
+    --surface-raised: #1a1e26;
+    --surface-sunken: #101318;
+    --surface-hover: #1e222b;
+    --surface-active: #262b35;
+
+    --border: #252a34;
+    --border-strong: #363d4a;
+    --border-focus: #7b90ff;
+
+    --text-primary: #eef0f4;
+    --text-secondary: #a4acbc;
+    --text-tertiary: #6f7889;
+    --text-inverse: #0c0e13;
+
+    --accent: #6b85ff;
+    --accent-hover: #8298ff;
+    --accent-soft: #1b2140;
+    --accent-text: #9cadff;
+
+    --success: #3ec78d;
+    --success-soft: #10291f;
+    --warning: #e0a44a;
+    --warning-soft: #2b2113;
+    --danger: #f2788c;
+    --danger-soft: #2e1519;
+    --info: #57b4dd;
+    --info-soft: #102530;
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.4);
+
+    --skeleton-base: #1e222b;
+    --skeleton-shine: #272c36;
+  }
+}

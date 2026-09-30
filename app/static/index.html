@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>قاعدة المعرفة — RAG</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">KB</span>
+        <div>
+          <h1>قاعدة المعرفة</h1>
+          <p id="configLine" class="muted">جارٍ تحميل الإعدادات…</p>
+        </div>
+      </div>
+      <div id="healthBadges" class="badges"></div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab is-active" data-tab="documents">المستندات</button>
+      <button class="tab" data-tab="chat">المحادثة</button>
+    </nav>
+
+    <main>
+      <section id="documents" class="panel is-active">
+        <div class="card">
+          <h2>رفع ملف Markdown</h2>
+          <form id="uploadForm">
+            <div class="dropzone" id="dropzone">
+              <input type="file" id="fileInput" name="file" accept=".md,.markdown" required hidden />
+              <p id="dropLabel">اسحب ملف <code>.md</code> هنا أو اضغط للاختيار</p>
+            </div>
+            <div class="grid">
+              <label>العنوان<input type="text" name="title" placeholder="يُستخرج تلقائيًا" /></label>
+              <label>التصنيف
+                <input type="text" name="category" list="categoryList" placeholder="General" />
+                <datalist id="categoryList"></datalist>
+              </label>
+              <label>المصدر<input type="text" name="source" placeholder="FIDIC 1999 / إجراء داخلي" /></label>
+              <label>الإصدار<input type="text" name="version" placeholder="1.0" /></label>
+              <label>التاريخ<input type="text" name="date" placeholder="2026-01-01" /></label>
+              <label>اللغة<input type="text" name="language" placeholder="auto" /></label>
+            </div>
+            <button type="submit" class="primary" id="uploadBtn">رفع ومعالجة</button>
+            <p id="uploadMsg" class="msg"></p>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h2>المستندات المفهرسة</h2>
+            <button id="refreshBtn" class="ghost">تحديث</button>
+          </div>
+          <div class="table-wrap">
+            <table id="docsTable">
+              <thead>
+                <tr>
+                  <th>الملف</th><th>التصنيف</th><th>الإصدار</th>
+                  <th>الحالة</th><th>Chunks</th><th>تاريخ الرفع</th><th>إجراءات</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <p id="docsEmpty" class="muted" hidden>لا توجد مستندات بعد.</p>
+        </div>
+      </section>
+
+      <section id="chat" class="panel">
+        <div class="card chat-card">
+          <div id="messages" class="messages">
+            <div class="bubble agent">
+              اسأل عن أي معلومة موجودة في المستندات المرفوعة. الإجابات مبنية على المصادر فقط.
+            </div>
+          </div>
+          <form id="chatForm" class="chat-input">
+            <textarea id="question" rows="2" placeholder="اكتب سؤالك هنا…" required></textarea>
+            <button type="submit" class="primary" id="askBtn">إرسال</button>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <div id="chunksModal" class="modal" hidden>
+      <div class="modal-body">
+        <div class="modal-head">
+          <h3 id="modalTitle">Chunks</h3>
+          <button id="modalClose" class="ghost">إغلاق</button>
+        </div>
+        <div id="modalContent"></div>
+      </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

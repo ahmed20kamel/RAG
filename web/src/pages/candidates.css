@@ -1,0 +1,534 @@
+/* Phase 4 — learning candidates, in the page and in the chat.
+ *
+ * One sheet for the whole feature rather than one per surface: the suggestion card in a
+ * message, the "why this answer" modal and the candidates table are the same few shapes
+ * seen in different places, and splitting them would mean keeping three copies of the
+ * quote, the meta row and the evidence item in step.
+ *
+ * Logical properties throughout, so the layout mirrors for Arabic without a second set
+ * of rules, and every colour comes from a token.
+ */
+
+/* Stat tiles -------------------------------------------------------------- */
+.lc-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: var(--space-3);
+}
+
+.lc-tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  min-inline-size: 0;
+}
+
+.lc-tile__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.lc-tile__label {
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+  line-height: 1.4;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.lc-tile__icon {
+  color: var(--text-tertiary);
+  flex: none;
+}
+
+.lc-tile__value {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  font-variant-numeric: tabular-nums;
+  unicode-bidi: plaintext;
+}
+
+.lc-tile--accent .lc-tile__value,
+.lc-tile--accent .lc-tile__icon {
+  color: var(--accent-text);
+}
+
+.lc-tile--warning .lc-tile__value,
+.lc-tile--warning .lc-tile__icon {
+  color: var(--warning);
+}
+
+/* Table ------------------------------------------------------------------- */
+.lc-table {
+  overflow: hidden;
+}
+
+.lc-table__row {
+  cursor: pointer;
+}
+
+/* Two lines of the suggestion: enough to tell candidates apart, never enough to push
+ * the state and the date off the row. */
+.lc-table__content {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-inline-size: 26rem;
+  line-height: var(--leading-snug);
+}
+
+.lc-table__muted {
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.lc-table__actions {
+  display: flex;
+  gap: var(--space-1);
+  justify-content: flex-end;
+}
+
+.lc-table__skeletons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+}
+
+/* Cards — the table's shape below 48rem. */
+.lc-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.lc-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  cursor: pointer;
+  text-align: start;
+}
+
+.lc-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.lc-card__content {
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  overflow-wrap: anywhere;
+}
+
+.lc-card__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-4);
+}
+
+.lc-card__label {
+  display: block;
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+}
+
+.lc-card__value {
+  font-size: var(--text-sm);
+  unicode-bidi: plaintext;
+  overflow-wrap: anywhere;
+}
+
+/* Pager ------------------------------------------------------------------- */
+.lc-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.lc-pager__count {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  unicode-bidi: plaintext;
+}
+
+.lc-pager__buttons {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* The chevrons are one glyph mirrored, rather than two icon paths. */
+[dir='rtl'] .lc-pager__buttons svg {
+  transform: scaleX(-1);
+}
+
+/* Shared pieces ----------------------------------------------------------- */
+.lc-signal {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-secondary);
+  unicode-bidi: plaintext;
+  overflow-wrap: anywhere;
+}
+
+.lc-quote {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-sunken);
+  border-inline-start: 2px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* The tidied suggestion is what would be filed, so it is the one that reads as the
+ * proposal; the raw sentence beside it is evidence of what was actually said. */
+.lc-quote--suggested {
+  border-inline-start-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.lc-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: flex-start;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+
+[dir='rtl'] .lc-link svg {
+  transform: scaleX(-1);
+}
+
+.lc-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-block-start: var(--space-4);
+  border-block-start: 1px solid var(--border);
+}
+
+.lc-section__title {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--text-secondary);
+}
+
+.lc-section__note,
+.lc-section__empty {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-snug);
+  color: var(--text-tertiary);
+}
+
+/* Detail ------------------------------------------------------------------ */
+.lc-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.lc-detail__skeletons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.lc-detail__badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.lc-compare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.lc-compare__cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.lc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--space-3) var(--space-4);
+  margin: 0;
+}
+
+.lc-grid dt {
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+}
+
+.lc-grid dd {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.lc-decide {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Forms ------------------------------------------------------------------- */
+.lc-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.lc-form__row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+/* The consequence of the button, stated where the button is. Accepting files a
+ * proposal; it does not make anything true. */
+.lc-form__note {
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  color: var(--text-secondary);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-sunken);
+  border-inline-start: 2px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.lc-form__note--immediate {
+  color: var(--warning);
+  background: var(--warning-soft);
+  border-inline-start-color: var(--warning);
+}
+
+/* In-chat suggestion card ------------------------------------------------- */
+.lc-prompt {
+  inline-size: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--accent);
+  border-radius: var(--radius-lg);
+  background: var(--accent-soft);
+}
+
+.lc-prompt__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--accent-text);
+}
+
+.lc-prompt__content {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.lc-prompt__note {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-snug);
+  color: var(--text-secondary);
+}
+
+.lc-prompt__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Why this answer --------------------------------------------------------- */
+.lc-why {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.lc-why__lead {
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  color: var(--text-tertiary);
+}
+
+.lc-why__alert {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.lc-why__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.lc-evidence {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+/* A rule is not evidence, and must not be skimmed as if it were: the panel is sunken
+ * and outlined rather than raised, so the two lists never blur into one. */
+.lc-evidence--policy {
+  background: var(--surface-sunken);
+  border-style: dashed;
+}
+
+.lc-evidence--conflict {
+  border-inline-start: 3px solid var(--warning);
+}
+
+.lc-evidence--unresolved {
+  border-inline-start-color: var(--danger);
+}
+
+.lc-evidence__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.lc-evidence__cite {
+  flex: none;
+  display: grid;
+  place-items: center;
+  inline-size: 1.375rem;
+  block-size: 1.375rem;
+  border-radius: var(--radius-xs);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+}
+
+.lc-evidence__title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.lc-evidence__body {
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.lc-evidence__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+}
+
+.lc-sides {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.lc-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  min-inline-size: 0;
+}
+
+.lc-side__label {
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+  overflow-wrap: anywhere;
+}
+
+.lc-side__values {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+  unicode-bidi: plaintext;
+}
+
+/* Responsive -------------------------------------------------------------- */
+@media (max-width: 47.99rem) {
+  .lc-compare,
+  .lc-sides {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 26rem) {
+  .lc-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lc-card__grid,
+  .lc-form__row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lc-pager {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .lc-pager__buttons {
+    justify-content: space-between;
+  }
+
+  .lc-prompt__actions > * {
+    flex: 1 1 100%;
+  }
+}

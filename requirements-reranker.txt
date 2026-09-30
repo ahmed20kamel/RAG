@@ -1,0 +1,5 @@
+# Optional: the local cross-encoder reranker (RERANKER=cross). Not needed otherwise.
+# The model itself is downloaded once with scripts/download_reranker.py.
+onnxruntime>=1.20
+tokenizers>=0.20
+huggingface_hub>=0.25

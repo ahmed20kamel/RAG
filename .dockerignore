@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+.env
+.env.*
+data/
+tests/
+samples/
+web/node_modules/
+web/dist/
+web/.env
+.git/
+.env.bak*
+models/
+backups/
+tools/

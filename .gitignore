@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/
+
+# Web client
+web/node_modules/
+web/dist/
+web/.env
+web/coverage/
+
+# Local artefacts: model weights (re-downloadable) and backup archives (hold secrets)
+models/
+backups/
+.env.restored-*
+.env.before-*

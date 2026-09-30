@@ -1,0 +1,255 @@
+/* Settings page.
+ *
+ * Read-only surfaces: service cards, index counters and the backend's effective
+ * configuration. Every grid is `auto-fit`, so the same markup collapses to a single
+ * column on a narrow screen without a breakpoint per block.
+ */
+
+.settings {
+  gap: var(--space-8);
+}
+
+.settings__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.settings__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.settings__section-title {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+}
+
+.settings__hint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin-block-start: var(--space-3);
+}
+
+/* Key/value rows ---------------------------------------------------------- */
+.kv {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.kv__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-block: var(--space-2);
+  border-block-end: 1px solid var(--border);
+}
+
+.kv__row:last-child {
+  border-block-end: none;
+}
+
+.kv__key {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.kv__value {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+  unicode-bidi: plaintext;
+  overflow-wrap: anywhere;
+}
+
+.kv__mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+/* Service cards ----------------------------------------------------------- */
+.service-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-3);
+}
+
+.service {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+
+.service__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.service__icon {
+  display: grid;
+  place-items: center;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  flex: none;
+}
+
+.service__icon--down {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.service__title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.service__head .badge {
+  margin-inline-start: auto;
+}
+
+.service__url {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+.service__note {
+  font-size: var(--text-xs);
+  color: var(--danger);
+  line-height: var(--leading-snug);
+  overflow-wrap: anywhere;
+}
+
+/* Index counters ---------------------------------------------------------- */
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+
+.stat-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-secondary);
+}
+
+.stat-card__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+}
+
+.stat-card__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.stat-card__value {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-card__label {
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+}
+
+/* Configuration ----------------------------------------------------------- */
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.config-group {
+  min-inline-size: 0;
+}
+
+.config-group__body {
+  padding: var(--space-2) var(--space-5) var(--space-4);
+}
+
+.config__extensions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  justify-content: flex-end;
+}
+
+/* Appearance -------------------------------------------------------------- */
+.appearance {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+}
+
+/* Narrow screens ---------------------------------------------------------- */
+@media (max-width: 47.99rem) {
+  .settings {
+    gap: var(--space-6);
+  }
+
+  .service-grid,
+  .config-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 25rem) {
+  .kv__row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+  }
+
+  .kv__value {
+    text-align: start;
+  }
+
+  .config__extensions {
+    justify-content: flex-start;
+  }
+
+  .stat-card__stats {
+    gap: var(--space-4);
+  }
+
+  .appearance .segmented {
+    inline-size: 100%;
+    justify-content: space-between;
+  }
+}

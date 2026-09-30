@@ -1,0 +1,399 @@
+/* Document viewer.
+ *
+ * Every inline offset is a logical property, so the section indent and the pager read
+ * from the correct edge in Arabic without a mirrored copy of these rules.
+ */
+
+.doc__identity {
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.doc__title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.doc__filename {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
+.doc__dot {
+  color: var(--text-tertiary);
+}
+
+.doc__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.doc__head-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.doc-panel {
+  min-inline-size: 0;
+}
+
+.doc-panel__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Overview ---------------------------------------------------------------- */
+.doc-overview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.doc-failure {
+  background: var(--danger-soft);
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.doc-failure__title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--danger);
+}
+
+.doc-failure__message {
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+  unicode-bidi: plaintext;
+}
+
+.doc-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: var(--space-1) var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  margin: 0;
+}
+
+.doc-meta__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-block: var(--space-2);
+  border-block-end: 1px solid var(--border);
+}
+
+.doc-meta__row dt {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.doc-meta__row dd {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+  unicode-bidi: plaintext;
+  overflow-wrap: anywhere;
+}
+
+/* Sections ---------------------------------------------------------------- */
+.doc-sections {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.doc-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  scroll-margin-block: var(--space-10);
+  transition: background var(--duration-slow) var(--ease);
+}
+
+.doc-section__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.doc-section__level {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+  flex: none;
+}
+
+.doc-section__heading {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.doc-section__chars {
+  margin-inline-start: auto;
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.doc-section__path {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+}
+
+.doc-section__crumb:not(:last-child)::after {
+  content: '›';
+  margin-inline-start: var(--space-1);
+  color: var(--border-strong);
+}
+
+.doc-section__summary {
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  color: var(--text-secondary);
+}
+
+.doc-section__label {
+  display: block;
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+  margin-block-end: var(--space-1);
+}
+
+.doc-section__terms,
+.doc-section__flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+/* Chunks ------------------------------------------------------------------ */
+.doc-chunks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.doc-chunk {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  scroll-margin-block: var(--space-10);
+  transition: background var(--duration-slow) var(--ease);
+}
+
+.doc-chunk__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-block-end: 1px solid var(--border);
+}
+
+.doc-chunk__index {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  color: var(--accent-text);
+  background: var(--accent-soft);
+  padding: 0.125rem var(--space-2);
+  border-radius: var(--radius-full);
+  flex: none;
+}
+
+.doc-chunk__heading {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-chunk__chars {
+  margin-inline-start: auto;
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.doc-chunk__content {
+  padding: var(--space-3);
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  unicode-bidi: plaintext;
+  max-block-size: 26rem;
+  overflow-y: auto;
+}
+
+.doc-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding-block-start: var(--space-2);
+}
+
+.doc-pager__count {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.doc-pager__buttons {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* Entities ---------------------------------------------------------------- */
+.doc-entities {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.doc-entities__filter {
+  max-inline-size: 18rem;
+}
+
+.doc-entities .table-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.doc-entities__value {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  unicode-bidi: plaintext;
+  overflow-wrap: anywhere;
+}
+
+.doc-entities__context {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  max-inline-size: 28rem;
+  overflow-wrap: anywhere;
+}
+
+/* Source ------------------------------------------------------------------ */
+.doc-raw__title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.doc-raw__chars {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-normal);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.doc-raw__body {
+  margin: 0;
+  padding: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+  background: var(--surface-sunken);
+  border-end-start-radius: var(--radius-lg);
+  border-end-end-radius: var(--radius-lg);
+  max-block-size: 60vh;
+  overflow: auto;
+  overscroll-behavior: contain;
+  white-space: pre;
+  tab-size: 2;
+}
+
+/* Deep-link highlight ----------------------------------------------------- */
+.is-deeplinked {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+/* Narrow screens ---------------------------------------------------------- */
+@media (max-width: 47.99rem) {
+  .doc__actions {
+    inline-size: 100%;
+  }
+
+  .doc__actions .btn {
+    flex: 1 1 auto;
+  }
+
+  .doc-meta {
+    grid-template-columns: 1fr;
+    padding-inline: var(--space-4);
+  }
+
+  .doc-entities__filter {
+    max-inline-size: none;
+  }
+
+  .doc-entities__context {
+    max-inline-size: 16rem;
+  }
+}
+
+@media (max-width: 25rem) {
+  .doc-section {
+    /* The indent stops earning its space once the card is this narrow. */
+    padding-inline-start: var(--space-3) !important;
+    padding-inline-end: var(--space-3);
+  }
+
+  .doc-chunk__heading {
+    display: none;
+  }
+
+  .doc-pager {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .doc-pager__buttons .btn {
+    flex: 1;
+  }
+}
