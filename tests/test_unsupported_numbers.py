@@ -52,7 +52,7 @@ def check(condition: bool, label: str) -> None:
 
 
 def digits(text: str) -> set[str]:
-    """Figures with their separators stripped, so 1,450.00 matches 1450.00."""
+    """Figures with their separators stripped, so 1,985.19 matches 1985.19."""
     return {
         m.group().replace(",", "").replace("٬", "").rstrip(".")
         for m in FIGURE.finditer(text or "")

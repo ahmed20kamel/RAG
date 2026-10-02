@@ -43,6 +43,7 @@ from app.services.metrics import MetricsRecorder, Thresholds
 from app.services.query_analysis import QueryAnalyzer
 from app.services.query_rewrite import SynonymLexicon, learned_terms_from_db
 from app.services.rag_service import RagService
+from app.services.table_assist import RagflowTableAssist
 from app.services.reranking import CrossEncoderReranker, FeatureReranker
 from app.services.retriever import HybridRetriever
 from app.services.structure import DocumentStructureAnalyzer
@@ -181,6 +182,13 @@ class Container:
             summarizer=self.summarizer,
             knowledge=self.knowledge,
             keyword_index=self.keyword_index,
+            table_assist=RagflowTableAssist(
+                base_url=settings.ragflow_url,
+                api_key=settings.ragflow_api_key,
+                dataset=settings.table_assist_dataset,
+                timeout=settings.table_assist_timeout,
+                enabled=settings.table_assist_enabled,
+            ),
         )
         self.document_service = DocumentService(
             settings=settings,
@@ -272,6 +280,10 @@ class Container:
             self.knowledge_index.ensure_collection(self.embedder.dimension)
         except Exception as exc:  # noqa: BLE001
             logger.warning("Knowledge index warmup skipped: %s", exc)
+        try:
+            self.document_service.remove_orphans()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Leftover cleanup skipped: %s", exc)
         try:
             self.keyword_index.rebuild()
         except Exception as exc:  # noqa: BLE001

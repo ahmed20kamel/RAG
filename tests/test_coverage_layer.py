@@ -138,19 +138,19 @@ def test_planner_binding() -> None:
     print("\n-- EvidencePlanner: candidates are bound by kind and wording --")
     items = (
         item("attribute", "المهندس سالم أحمد", "مدير المشروع", heading="فريق العمل"),
-        item("attribute", "1,450,000 درهم", "قيمة العقد", heading="الأرقام"),
+        item("attribute", "2,680,000 درهم", "قيمة العقد", heading="الأرقام"),
         item("attribute", "شركة ألفا للمقاولات", "المقاول", heading="فريق العمل"),
     )
     contract = contract_for("من هو مدير المشروع؟")
     bound = PLANNER.bind(contract, evidence_of(*items))
     values = [i.value for group in bound.values() for i in group]
     check("المهندس سالم أحمد" in values, "the matching person is bound")
-    check("1,450,000 درهم" not in values, "an unrelated amount is not bound to a person ask")
+    check("2,680,000 درهم" not in values, "an unrelated amount is not bound to a person ask")
 
     contract = contract_for("ما قيمة العقد؟")
     bound = PLANNER.bind(contract, evidence_of(*items))
     values = [i.value for group in bound.values() for i in group]
-    check("1,450,000 درهم" in values, "the matching amount is bound")
+    check("2,680,000 درهم" in values, "the matching amount is bound")
 
     check(
         not evidence_of(item("attribute", "س", "قصير")).add(
@@ -167,22 +167,22 @@ def test_coverage_matching() -> None:
 
     _c, result = cover(
         "متى صدر القرار؟",
-        (item("date", "صدور القرار", "15/12/2025", heading="القرارات"),),
-        "صدر القرار في 5 مارس 2026 [1].",
+        (item("date", "صدور القرار", "10/02/2026", heading="القرارات"),),
+        "صدر القرار في 10 فبراير 2026 [1].",
     )
     check(result.complete, "D. a date written in words counts as stated")
 
     _c, result = cover(
         "متى صدر القرار؟",
-        (item("date", "صدور القرار", "15/12/2025", heading="القرارات"),),
-        "صدر القرار في 23/11/2025 [1].",
+        (item("date", "صدور القرار", "10/02/2026", heading="القرارات"),),
+        "صدر القرار في 11/02/2026 [1].",
     )
     check(not result.complete, "D. a different date does not count")
 
     _c, result = cover(
         "ما قيمة العقد؟",
-        (item("attribute", "1,450,000 درهم", "قيمة العقد", heading="الأرقام"),),
-        "قيمة العقد 1450000 درهم [1].",
+        (item("attribute", "2,680,000 درهم", "قيمة العقد", heading="الأرقام"),),
+        "قيمة العقد 2680000 درهم [1].",
     )
     check(result.complete, "C. an amount without separators counts")
 
@@ -222,7 +222,7 @@ def test_coverage_matching() -> None:
         "من وقّع العقد ومتى؟",
         (
             item("attribute", "المهندس سالم أحمد", "الموقّع", heading="التوقيع"),
-            item("date", "توقيع العقد", "21/07/2024", heading="التوقيع"),
+            item("date", "توقيع العقد", "09/10/2024", heading="التوقيع"),
         ),
         "وقّع العقد المهندس سالم أحمد [1].",
     )
@@ -234,8 +234,8 @@ def test_coverage_matching() -> None:
 
     _c, result = cover(
         "ما قيمة العقد؟",
-        (item("attribute", "1,450,000 درهم", "قيمة العقد", heading="الأرقام"),),
-        "قيمة العقد 1,450,000 درهم [1]. ولا معلومات أخرى.",
+        (item("attribute", "2,680,000 درهم", "قيمة العقد", heading="الأرقام"),),
+        "قيمة العقد 2,680,000 درهم [1]. ولا معلومات أخرى.",
     )
     check(result.score == 1.0, "a satisfied contract scores 1.0")
 
@@ -244,7 +244,7 @@ def test_no_evidence_no_demand() -> None:
     print("\n-- nothing is demanded that the evidence does not support --")
     _c, result = cover(
         "من هو المستشار القانوني؟",
-        (item("attribute", "1,450,000 درهم", "قيمة العقد", heading="الأرقام"),),
+        (item("attribute", "2,680,000 درهم", "قيمة العقد", heading="الأرقام"),),
         "لا توجد معلومات كافية.",
     )
     check(result.complete, "I. an unsupported ask raises no missing item")
@@ -256,10 +256,10 @@ def test_conflicting_and_long() -> None:
     _c, result = cover(
         "ما قيمة الكشف المالي؟",
         (
-            item("attribute", "185,000 درهم", "الكشف المالي الأصلي", heading="الأرقام"),
-            item("attribute", "142,350 درهم", "الكشف المالي المعاد حسابه", heading="الأرقام"),
+            item("attribute", "121,095 درهم", "الكشف المالي الأصلي", heading="الأرقام"),
+            item("attribute", "126,788 درهم", "الكشف المالي المعاد حسابه", heading="الأرقام"),
         ),
-        "الكشف المالي الأصلي 185,000 درهم [1]، والمعاد حسابه 142,350 درهم [1].",
+        "الكشف المالي الأصلي 121,095 درهم [1]، والمعاد حسابه 126,788 درهم [1].",
     )
     check(result.complete, "M. both sides of a conflict count as stated")
 
@@ -301,14 +301,14 @@ def completion_may_only_add() -> None:
 
     evidence = EvidenceSet(context="")
     for value, label in (
-        ("B1N-2023-004410-P01", "رخصة البناء الأولى"),
-        ("B1N-2023-007782-P01", "رخصة البناء الثانية"),
-        ("16/11/2025", "تاريخ الإصدار الثاني"),
+        ("B1N-2024-005221-P01", "رخصة البناء الأولى"),
+        ("B1N-2025-016103-P01", "رخصة البناء الثانية"),
+        ("04/02/2026", "تاريخ الإصدار الثاني"),
     ):
         evidence.add(EvidenceItem(kind="identifier", value=value, label=label, citation=1))
 
-    full = "الأولى B1N-2023-004410-P01 [1]، والثانية B1N-2023-007782-P01 [1] بتاريخ 16/11/2025 [1]."
-    trimmed = "الأولى B1N-2023-004410-P01 [1]."
+    full = "الأولى B1N-2024-005221-P01 [1]، والثانية B1N-2025-016103-P01 [1] بتاريخ 04/02/2026 [1]."
+    trimmed = "الأولى B1N-2024-005221-P01 [1]."
     check(COVERAGE.stated_count(evidence, full) == 3, "R. every stated value is counted")
     check(COVERAGE.stated_count(evidence, trimmed) == 1, "R. a rewrite that drops values counts lower")
     check(COVERAGE.stated_count(evidence, trimmed) < COVERAGE.stated_count(evidence, full),
@@ -325,11 +325,11 @@ def shape_only_requirements() -> None:
     print("\n-- a requirement without a lexical anchor is judged by shape --")
 
     unrelated_dates = (
-        item("date", "09/09/2024", "بدء أعمال الطرف الآخر", heading="سجل الإصدارات"),
-        item("date", "18/04/2026", "مذكرة دفاع", heading="سجل الجلسات"),
+        item("date", "28/11/2024", "بدء أعمال الطرف الآخر", heading="سجل الإصدارات"),
+        item("date", "07/07/2026", "مذكرة دفاع", heading="سجل الجلسات"),
     )
     contract, result = cover(
-        "متى بدأ الحفر العميق؟", unrelated_dates, "بدأ الحفر العميق في 30/11/2025 [3]."
+        "متى بدأ الحفر العميق؟", unrelated_dates, "بدأ الحفر العميق في 18/02/2026 [3]."
     )
     requirement = contract.by_key("p0.date")
     check(requirement is not None and requirement.shape_only,
@@ -343,9 +343,9 @@ def shape_only_requirements() -> None:
     check(not result.complete, "P. an answer stating no date at all is still unmet")
 
     # The same rule must not soften a requirement the evidence *does* echo.
-    anchored = (item("date", "30/11/2025", "بدء الحفر العميق", heading="التسلسل الزمني"),)
+    anchored = (item("date", "18/02/2026", "بدء الحفر العميق", heading="التسلسل الزمني"),)
     contract, result = cover(
-        "متى بدأ الحفر العميق؟", anchored, "بدأ الحفر العميق في 09/09/2024 [1]."
+        "متى بدأ الحفر العميق؟", anchored, "بدأ الحفر العميق في 28/11/2024 [1]."
     )
     check(not contract.by_key("p0.date").shape_only,
           "P. matching wording keeps the requirement value-bound")

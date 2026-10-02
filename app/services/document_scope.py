@@ -1,7 +1,7 @@
 """Which document a question is about, when the question names one.
 
 Search runs over every indexed document. That is right for "ما مهلة إخطار المطالبة؟"
-and wrong for "اقرأ ملف project_notes وأجب منه فقط": asked exactly that, with
+and wrong for "اقرأ ملف PROJECT_MIGRATION_SUMMARY وأجب منه فقط": asked exactly that, with
 two documents indexed whose names both contain those words — one a construction
 lawsuit, the other an employment matter — the system searched both and answered with
 one matter's ruling beside the other's settlement, as though they were one case.

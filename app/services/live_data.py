@@ -99,9 +99,9 @@ LIVE_DATA_MARKERS: tuple[str, ...] = (
 
 #: Letters either side of a marker that mean it is part of a longer word rather than a
 #: word of its own. Arabic needs this stated explicitly: `\b` in Python's `re` works on
-#: word characters, which is not enough here — "الآن" would otherwise match inside
-#: "الانصراف" and report a question about the attendance policy as a request for
-#: live data. Short Arabic particles are dense with such overlaps, so the match is
+#: word characters, which is not enough here — the first version of this matched "الآن"
+#: inside "الانصراف" and reported a question about the attendance policy as a request
+#: for live data. Short Arabic particles are dense with such overlaps, so the match is
 #: anchored at both ends.
 _LETTER = r"[\w؀-ۿ]"
 _MARKER_RE = re.compile(

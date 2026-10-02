@@ -4,9 +4,9 @@ A working file does not replace what it corrects — it appends. The original cl
 on the page, the correction is written underneath it, and both remain retrievable
 forever. Measured on this corpus, one question had three answers living side by side:
 
-    "<البند> (خمسة عناصر)"          — an early statement
-    the original list in the request  — superseded but still on the page
-    "<البند> النافذ = ثلاثة عناصر"    — the one actually in force
+    "مأمورية الخبير (5 بنود)"                        — an early statement
+    the seven items requested in the pleadings        — the original request
+    "المأمورية النافذة = 3 بنود فقط"                  — the one actually in force
 
 Retrieval found all three and the model answered with whichever came first. Asking the
 same question three ways produced 7, then 5, then 3 — and only the phrasing that

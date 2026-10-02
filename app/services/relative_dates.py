@@ -1,13 +1,13 @@
 """Relative time in a question — "الأسبوع الماضي", "قبل ثلاثة أيام" — as real dates.
 
-Two things are needed, and without either these questions cannot be answered:
+Two things were missing, and either alone made these questions unanswerable:
 
-* **The model does not know today's date** unless the prompt states it. Without it,
-  "what happened last week" has no referent: the model either guesses a week or
-  describes the newest evidence and implies it was last week's.
-* **Retrieval cannot use the phrase directly.** "الأسبوع الماضي" shares no word with a
-  section titled "جلسة 24/09/2026", so the dated section that answers the question
-  would be reachable only by luck.
+* **The model does not know today's date.** Nothing in the prompt said it, so "what
+  happened last week" had no referent: the model either guessed a week or described the
+  newest evidence and implied it was last week's.
+* **Retrieval could not use the phrase.** "الأسبوع الماضي" shares no word with a section
+  titled "جلسة 24/09/2026", so the dated section that answers the question was reachable
+  only by luck.
 
 This module turns the phrase into a closed window of dates against a stated "today".
 Ranking then rewards passages dated inside the window exactly as it rewards a passage
@@ -258,7 +258,7 @@ def read_relative(question: str, today: date | None = None) -> DateWindow | None
     """The window of dates a question refers to relatively, or None.
 
     An explicit date in the question is left to the caller, which gives it precedence:
-    someone who wrote "15/08/2026" has said which day they mean.
+    someone who wrote "13/08/2026" has said which day they mean.
     """
     today = today or date.today()
     normalised = normalize(question)

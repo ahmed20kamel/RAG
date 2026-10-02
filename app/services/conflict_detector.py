@@ -65,7 +65,7 @@ WRITTEN_DATE_NUMBERS = re.compile(
     r"\b\d{1,2}\s+[^\W\d_]+\s+\d{4}\b"
 )
 #: A number opening a line or a cell and followed by a separator is a list marker or a
-#: section number — "11. الملفات المنتجة", "3", "3)" — not a measured value.
+#: section number — "11. الملفات المنتجة", "6-ع", "3)" — not a measured value.
 SECTION_MARKER = re.compile(r"^\s*\d+\s*[.)\-–—/]")
 
 

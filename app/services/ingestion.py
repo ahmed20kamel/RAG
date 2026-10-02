@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -25,10 +26,16 @@ from app.services.entities import EntityExtractor
 from app.services.keyword_index import KeywordIndex
 from app.services.knowledge_store import KnowledgeStore
 from app.services.structure import DocumentStructureAnalyzer
+from app.services.table_assist import RagflowTableAssist
 from app.services.summaries import SectionSummarizer
 from app.services.vector_store import QdrantVectorStore
 
 logger = logging.getLogger(__name__)
+
+
+class DocumentAbandoned(Exception):
+    """The document was deleted while it was being processed. Not a failure: the work
+    stops, and whatever it already wrote is taken back out."""
 
 
 class IngestionPipeline:
@@ -43,8 +50,10 @@ class IngestionPipeline:
         summarizer: SectionSummarizer,
         knowledge: KnowledgeStore,
         keyword_index: KeywordIndex,
+        table_assist: RagflowTableAssist | None = None,
     ) -> None:
         self.registry = registry
+        self.table_assist = table_assist
         self.chunker = chunker
         self.embedder = embedder
         self.store = store
@@ -53,17 +62,83 @@ class IngestionPipeline:
         self.summarizer = summarizer
         self.knowledge = knowledge
         self.keyword_index = keyword_index
+        # Documents being processed right now, and those among them deleted since they
+        # started. A delete marks the document here before it removes anything, so the
+        # worker learns of it even before the delete is committed.
+        self._lock = threading.Lock()
+        self._active: set[str] = set()
+        self._cancelled: set[str] = set()
+
+    def cancel(self, document_id: str) -> None:
+        """Tell a running job that its document is being deleted."""
+        with self._lock:
+            if document_id in self._active:
+                self._cancelled.add(document_id)
+
+    def _cancel_requested(self, document_id: str) -> bool:
+        with self._lock:
+            return document_id in self._cancelled
+
+    def _abandoned(self, document_id: str) -> bool:
+        if self._cancel_requested(document_id):
+            return True
+        with session_scope() as session:
+            return session.get(Document, document_id) is None
+
+    def _check(self, document_id: str) -> None:
+        """Called before every step that writes: a deleted document is not written."""
+        if self._abandoned(document_id):
+            raise DocumentAbandoned(document_id)
+
+    def _discard(self, document_id: str) -> None:
+        """Take back out whatever this job wrote for a document that no longer exists."""
+        logger.info("Document %s was deleted during processing; its output is removed", document_id)
+        for step in (
+            lambda: self.store.delete_document(document_id),
+            lambda: self.knowledge.delete_document(document_id),
+            self.keyword_index.rebuild,
+        ):
+            try:
+                step()
+            except Exception:  # noqa: BLE001 - the startup reconciliation is the backstop
+                logger.exception("Could not remove output of deleted document %s", document_id)
 
     def run(self, document_id: str) -> None:
         """Process one document end to end. Never raises: failures land in the DB row."""
+        with self._lock:
+            self._active.add(document_id)
+        try:
+            self._guarded(document_id)
+        finally:
+            with self._lock:
+                self._active.discard(document_id)
+                self._cancelled.discard(document_id)
+
+    def _guarded(self, document_id: str) -> None:
         try:
             self._run(document_id)
-        except RagError as exc:
+        except DocumentAbandoned:
+            self._discard(document_id)
+        except Exception as exc:  # noqa: BLE001
+            # A delete also removes the stored file, so a job it interrupts often fails
+            # on the way out. That is the delete, not a failure worth reporting.
+            try:
+                abandoned = self._abandoned(document_id)
+            except Exception:  # noqa: BLE001 - the database itself may be the failure
+                abandoned = False
+            if abandoned:
+                self._discard(document_id)
+                return
+            self._report(document_id, exc)
+
+    def _report(self, document_id: str, exc: Exception) -> None:
+        if isinstance(exc, RagError):
             logger.warning("Ingestion failed for %s: %s", document_id, exc.message)
             self._fail(document_id, exc.message, self._status_for(exc))
-        except Exception as exc:  # noqa: BLE001 - last line of defence for a worker thread
-            logger.exception("Unexpected ingestion failure for %s", document_id)
-            self._fail(document_id, f"خطأ غير متوقع أثناء المعالجة: {exc}")
+            return
+        # The last line of defence for a worker thread.
+        logger.error("Unexpected ingestion failure for %s", document_id, exc_info=exc)
+        self._fail(document_id, f"خطأ غير متوقع أثناء المعالجة: {exc}")
 
     @staticmethod
     def _status_for(error: RagError) -> DocumentStatus:
@@ -130,6 +205,14 @@ class IngestionPipeline:
         if parsed.extraction_warning:
             logger.warning("%s: %s", filename, parsed.extraction_warning)
 
+        # A scanned PDF also gets the tables RAGFlow rebuilt cell by cell, where our
+        # own reading of a table is loose lines. Our text stays the document; see
+        # table_assist for which of its tables are trusted.
+        if self.table_assist is not None and self.table_assist.wanted(parsed):
+            self._check(document_id)
+            parsed = self.table_assist.enrich(parsed, content, filename)
+
+        self._check(document_id)
         self._set_status(document_id, DocumentStatus.ANALYZING)
         self.structure.analyze(parsed)
         self.summarizer.apply(parsed.sections)
@@ -147,6 +230,7 @@ class IngestionPipeline:
 
         metadata = self._resolve_metadata(parsed, overrides)
 
+        self._check(document_id)
         self.knowledge.replace_document(
             document_id=document_id,
             sections=parsed.sections,
@@ -157,9 +241,11 @@ class IngestionPipeline:
             language=metadata["language"],
         )
 
+        self._check(document_id)
         self._set_status(document_id, DocumentStatus.EMBEDDING)
         vectors = self.embedder.embed([chunk.embed_text for chunk in chunks])
 
+        self._check(document_id)
         self._set_status(document_id, DocumentStatus.INDEXING)
         self.store.ensure_collection(len(vectors[0]))
         self.store.delete_document(document_id)
@@ -175,10 +261,11 @@ class IngestionPipeline:
         self.keyword_index.rebuild()
         logger.info("Indexed %s points for %s", indexed, filename)
 
+        self._check(document_id)
         with session_scope() as session:
             document = session.get(Document, document_id)
-            if document is None:
-                return
+            if document is None or self._cancel_requested(document_id):
+                raise DocumentAbandoned(document_id)
             document.title = metadata["title"] or document.title
             document.category = metadata["category"]
             document.source = metadata["source"]

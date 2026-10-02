@@ -29,8 +29,8 @@ from app.core.text import all_dates, normalize
 from app.services.relative_dates import DateWindow, read_relative
 
 #: Wordings that ask for the most recent state of something. Singular *and* plural:
-#: with only the plural "آخر تحديثات", "أحدث تحديث" — the same question asked once
-#: instead of repeatedly — would reach none of the dated sections.
+#: the first version of this only had the plural "آخر تحديثات", so "أحدث تحديث" — the
+#: same question asked once instead of repeatedly — reached none of the dated sections.
 LATEST_CUES: tuple[str, ...] = (
     # Arabic
     "اخر",            # آخر مرحلة / آخر تحديث / آخر قرار

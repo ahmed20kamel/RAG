@@ -65,7 +65,7 @@ class AnswerValidator:
                 continue
             # A fact is owed to the answer when the question's own words point at it,
             # through the fact's label or the heading of the section it came from. That
-            # keeps "من هم أطراف العقد؟" bound to the parties section instead of
+            # keeps "من هم أطراف القضية؟" bound to the parties section instead of
             # demanding every name anywhere in the primary evidence.
             targeted = bool(
                 query_terms & (content_terms(fact.label) | content_terms(fact.section_heading))

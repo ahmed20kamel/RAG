@@ -1,10 +1,10 @@
 """Structured evidence: the label/value facts behind the retrieved sections.
 
-The problem this module solves: asked to list the parties to a matter, a model given
-only prose may summarise some of them and attach one party's role to another. The
-document itself usually states the mapping plainly in a table — "الممثل القانوني =
-<اسم>", "المالك = <اسم>" — and that mapping is extracted at ingestion. Putting it in
-front of the model as label/value pairs removes the need to infer it from prose.
+The diagnostic that motivated this module: for "من هم أطراف القضية؟" every party was
+present in the context, yet the model summarised two of them and attached the legal
+representative's role to the owner. The section's own table already states
+"ممثل سافكوم القانوني = وضاح ممدوح فحله" and "المالك الوحيد = محمد جمعه الجنيبي" —
+that mapping was extracted at ingestion but never shown to the model.
 
 Everything here is a verbatim label/value pair from the document, selected by rule.
 No model is involved, so no fact can be invented and no two holders can be merged.
@@ -229,8 +229,7 @@ class FactSheetBuilder:
     def _ambiguity_note(query_terms: set[str], facts: list[SourceFact]) -> str:
         """Warn when a word in the question names more than one documented thing.
 
-        One word may name two documented things — "رخصة <جهة>" can match both a trade licence
-        and a building permit. Left alone the
+        "رخصة سافكوم" matches both a trade licence and a building permit. Left alone the
         model picks one and states it as the answer; naming both keeps the distinction
         the document draws instead of guessing which was meant.
         """

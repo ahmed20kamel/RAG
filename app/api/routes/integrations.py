@@ -125,11 +125,12 @@ async def erp_query(request: Request, container: ContainerDep, response: Respons
             )
 
             # Immediately after the credential is known and before anything else is
-            # done with the body. Placed after validation, a caller looping on a
-            # malformed request would never be slowed down: every attempt would be
-            # refused by the parser before reaching the limiter, while the database took
-            # the full rate of authentications. A caller stuck in a loop should be told
-            # to back off, whatever is wrong with what it is sending.
+            # done with the body. Placing it after validation, as the first version
+            # did, meant a caller looping on a malformed request was never slowed down:
+            # every attempt was refused by the parser, which is before the limiter, so
+            # the bucket never emptied while the database took the full rate of
+            # authentications. A caller stuck in a loop should be told to back off,
+            # whatever is wrong with what it is sending.
             container.integration_rate_limiter.check(
                 client.key_id,
                 per_minute=client.rate_limit_per_minute,

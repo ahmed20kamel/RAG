@@ -90,7 +90,7 @@ def arabic_signals_are_detected() -> None:
         ("تعلم القاعدة: عند تعارض مستندين اعرض القيمتين مع المصدر", KnowledgeType.RULE),
         ("من الآن فصاعدًا اذكر العملة بعد كل مبلغ في الإجابة", KnowledgeType.RULE),
         ("المعلومة السابقة غير صحيحة، الصحيح هو خمسة عشر بالمئة", KnowledgeType.CORRECTION),
-        ("يقصد بالمعاينة في مشروعنا زيارة المختص الميدانية وليس الاجتماع", KnowledgeType.TERMINOLOGY),
+        ("يقصد بالمعاينة في مشروعنا زيارة الخبير الميدانية وليس الاجتماع", KnowledgeType.TERMINOLOGY),
         ("أفضّل الإجابات المختصرة بالعربية الفصحى", KnowledgeType.PREFERENCE),
         ("الإجراء هو إشعار التأمين ثم تجهيز المستندات ثم مراجعة المحامي", KnowledgeType.PROCEDURE),
         ("تعلم أن الاسم الرسمي للجهة هو شركة المقاولات العامة المحدودة", KnowledgeType.FACT),
@@ -108,7 +108,7 @@ def english_signals_are_detected() -> None:
     print("\n-- 2. the same phrasings in English --")
     cases = [
         ("from now on always show both values when two sources disagree", KnowledgeType.RULE),
-        ("that is incorrect, the correct value is 50,000 AED", KnowledgeType.CORRECTION),
+        ("that is incorrect, the correct value is 268,000 AED", KnowledgeType.CORRECTION),
         ("we mean by handover the formal site acceptance, not the inspection", KnowledgeType.TERMINOLOGY),
         ("I prefer short answers in English please", KnowledgeType.PREFERENCE),
         ("the procedure is notify insurance then prepare the documents", KnowledgeType.PROCEDURE),

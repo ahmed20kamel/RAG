@@ -62,8 +62,8 @@ def names_are_resolved() -> None:
         "اقرأ ملف PROJECT_SUMMARY المرفوع، وأجب اعتمادًا عليه فقط": "ambiguous:lawsuit,employment",
         "من ملف PROJECT_SUMMARY_v1_24 ما آخر مرحلة؟": "employment",
         "من project summary v1.24 ما المطلوب؟": "employment",
-        "من PROJECT_SUMMARY.md ما صفة الجهة الثانية؟": "lawsuit",
-        "من ملف PROJECT_SUMMARY.md: ما رقم هاتف المختص؟": "lawsuit",      # a colon after the name
+        "من PROJECT_SUMMARY.md ما صفة المدعى عليها؟": "lawsuit",
+        "من ملف PROJECT_SUMMARY.md: ما رقم هاتف الخبير؟": "lawsuit",      # a colon after the name
         "(PROJECT_SUMMARY_v1_24.md) ما آخر مرحلة؟": "employment",          # brackets around it
         "حسب FIDIC_Claims_Procedure ما مهلة الإخطار؟": "fidic",
         "في دليل العمل مطالبات التأمين ما الخطوة الأولى؟": "insurance",

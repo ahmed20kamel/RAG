@@ -161,7 +161,7 @@ def ask(service: RagService, question: str):
 def an_internal_answer_never_reaches_the_web() -> None:
     print("\n-- 1. the corpus answered, so the web is not called --")
     service, stub, _ = build(
-        web_enabled=True, candidates=[StubCandidate("قيمة العقد 1,450,000 درهم.")]
+        web_enabled=True, candidates=[StubCandidate("قيمة العقد 2,680,000 درهم.")]
     )
     response = ask(service, "ما قيمة العقد؟")
 
@@ -202,13 +202,13 @@ def strong_internal_evidence_keeps_the_web_out() -> None:
     print("\n-- 4. a full internal answer keeps the web out even when enabled --")
     service, stub, prompts = build(
         web_enabled=True,
-        candidates=[StubCandidate("الغرامة اليومية 1,450.00 درهم.")],
-        internal_answer="الغرامة اليومية هي 1,450.00 درهم [1].",
+        candidates=[StubCandidate("الغرامة اليومية 1,985.19 درهم.")],
+        internal_answer="الغرامة اليومية هي 1,985.19 درهم [1].",
     )
     response = ask(service, "ما الغرامة اليومية؟")
 
     check(stub.calls == [], "no search was made")
-    check("1,450.00" in response.answer, "the internal figure is the answer")
+    check("1,985.19" in response.answer, "the internal figure is the answer")
     check(
         all("الويب" not in system for system, _user in prompts),
         "and the web prompt was never used",
@@ -316,7 +316,7 @@ def a_web_result_never_becomes_knowledge() -> None:
 def internal_and_web_are_never_mixed_in_one_list() -> None:
     print("\n-- 11. the two kinds of source stay in separate lists --")
     internal_service, _s, _ = build(
-        web_enabled=True, candidates=[StubCandidate("قيمة العقد 1,450,000 درهم.")]
+        web_enabled=True, candidates=[StubCandidate("قيمة العقد 2,680,000 درهم.")]
     )
     internal = ask(internal_service, "ما قيمة العقد؟")
     check(bool(internal.sources) and not internal.web_sources, "an internal answer fills `sources` only")

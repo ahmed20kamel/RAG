@@ -162,12 +162,12 @@ class HybridRetriever:
 
         A rescue, not an override. Passages the reranker deliberately demoted are not
         eligible: a version that a later correction replaced, and — unless the question
-        is about the document itself — the document's own bookkeeping. Otherwise a
-        ranking that puts the passage stating the version in force at the top and the
-        file's changelog near the bottom would see the reservation reinstate the
-        changelog to first place, cited as [1], offering the model every superseded
-        value at once. A mechanism for rescuing buried matches must not resurrect what
-        was buried on purpose.
+        is about the document itself — the document's own bookkeeping. This was measured.
+        Asked for the expert's scope, the ranking put the passage stating the version in
+        force at the top and the file's changelog near the bottom, and the reservation
+        then reinstated the changelog to first place, where it was cited as [1] and
+        offered the model all three superseded counts at once. A mechanism for rescuing
+        buried matches must not resurrect what was buried on purpose.
         """
         if self.reserved_semantic_slots <= 0 or not final:
             return final

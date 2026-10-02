@@ -1,0 +1,116 @@
+{
+  "accepted": "2026-09-28T12:45:00",
+  "reason": "pre-change reference: three golden runs and one retrieval run on the code before the best-practice work",
+  "checksum_label": "before_best_practice",
+  "retrieval": {
+    "questions": 34,
+    "doc_hit": 1.0,
+    "section_hit": 1.0,
+    "section_mrr": 0.627,
+    "gold_recall": 0.985,
+    "latency_mean_ms": 3055,
+    "latency_p95_ms": 3567,
+    "out_of_kb": 4,
+    "out_of_kb_retrieved_mean": 11.0,
+    "per_category": {
+      "comparison": {
+        "doc_hit": 1.0,
+        "section_hit": 1.0,
+        "section_mrr": 0.6,
+        "gold_recall": 1.0
+      },
+      "cross_document": {
+        "doc_hit": 1.0,
+        "section_hit": 1.0,
+        "section_mrr": 1.0,
+        "gold_recall": 1.0
+      },
+      "date": {
+        "doc_hit": 1.0,
+        "section_hit": 1.0,
+        "section_mrr": 0.43,
+        "gold_recall": 1.0
+      },
+      "entity": {
+        "doc_hit": 1.0,
+        "section_hit": 1.0,
+        "section_mrr": 0.75,
+        "gold_recall": 0.875
+      },
+      "factual": {
+        "doc_hit": 1.0,
+        "section_hit": 1.0,
+        "section_mrr": 0.483,
+        "gold_recall": 1.0
+      },
+      "multi_section": {
+        "doc_hit": 1.0,
+        "section_hit": 1.0,
+        "section_mrr": 0.625,
+        "gold_recall": 1.0
+      },
+      "numeric": {
+        "doc_hit": 1.0,
+        "section_hit": 1.0,
+        "section_mrr": 0.69,
+        "gold_recall": 1.0
+      },
+      "timeline": {
+        "doc_hit": 1.0,
+        "section_hit": 1.0,
+        "section_mrr": 0.5,
+        "gold_recall": 1.0
+      }
+    },
+    "paraphrase": {
+      "doc_hit": 1.0,
+      "section_hit": 1.0,
+      "section_mrr": 0.422,
+      "gold_recall": 1.0,
+      "questions": 20
+    },
+    "order": {
+      "probes": 4,
+      "in_order": 0.0
+    },
+    "reranker": "feature"
+  },
+  "answers": {
+    "answer_completeness": {
+      "mean": 0.985,
+      "min": 0.985,
+      "max": 0.985
+    },
+    "answer_correctness": {
+      "mean": 0.971,
+      "min": 0.971,
+      "max": 0.971
+    },
+    "fully_complete_rate": {
+      "mean": 0.971,
+      "min": 0.971,
+      "max": 0.971
+    },
+    "document_accuracy": {
+      "mean": 1.0,
+      "min": 1.0,
+      "max": 1.0
+    },
+    "citation_accuracy": {
+      "mean": 1.0,
+      "min": 1.0,
+      "max": 1.0
+    },
+    "refusal_accuracy": {
+      "mean": 1.0,
+      "min": 1.0,
+      "max": 1.0
+    },
+    "hallucination_rate": {
+      "mean": 0.026,
+      "min": 0.026,
+      "max": 0.026
+    }
+  },
+  "history": []
+}

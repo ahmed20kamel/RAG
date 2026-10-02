@@ -77,18 +77,18 @@ def described(items: list) -> str:
 def measurement_extraction() -> None:
     print("\n-- 1. which numbers are claims about something --")
 
-    found = _measurements("قيمة غرامة التأخير القصوى للمشروع هي 50,000 درهم")
+    found = _measurements("قيمة غرامة التأخير القصوى للمشروع هي 268,000 درهم")
     check(len(found) == 1, f"a labelled amount is one measurement ({len(found)})")
     if found:
-        check(found[0].value == "50000", "the value drops its thousands separators")
+        check(found[0].value == "268000", "the value drops its thousands separators")
         check(found[0].unit == "درهم", "and keeps its unit", found[0].unit)
 
     # Everything below states a number and measures nothing.
     silent = [
         ("11. الملفات والتقارير المنتجة", "a section number"),
-        ("| الإصدار | v1.4.4 | 02/04/2026 |", "a version and a date in a table row"),
-        ("الرقم المرجعي fb/2026-147 بتاريخ 02/12/2025", "a reference code and a date"),
-        ("صدر القرار في 27/05/2026", "a bare date"),
+        ("| الإصدار | v1.4.4 | 21/06/2026 |", "a version and a date in a table row"),
+        ("الرقم المرجعي fb/2026-147 بتاريخ 20/02/2026", "a reference code and a date"),
+        ("صدر القرار في 13/08/2026", "a bare date"),
         ("اجتماع عام 2026", "a bare year"),
         ("الرقم 12", "a number with only one word naming it"),
         ("3) البند الثالث من المحضر", "a list marker"),
@@ -109,28 +109,28 @@ def bookkeeping_noise_is_silent() -> None:
     check(
         conflicts(
             "قائمة الملفات المنتجة: 11 ملف كامل و23 تقرير بحالة مكتملة.",
-            "سجل إصدارات هذا الملف: الإصدار v1.4.4 بتاريخ 02/04/2026 أضاف 14 قسماً.",
+            "سجل إصدارات هذا الملف: الإصدار v1.4.4 بتاريخ 21/06/2026 أضاف 14 قسماً.",
         ) == [],
         "section counts against a version log raise nothing",
     )
     check(
         conflicts(
-            "الرقم المرجعي fb/2026-147 بتاريخ 02/12/2025 بشأن الملف الكامل.",
-            "الرقم المرجعي fb/2026-151 بتاريخ 16/12/2025 بشأن الملف الكامل.",
+            "الرقم المرجعي fb/2026-147 بتاريخ 20/02/2026 بشأن الملف الكامل.",
+            "الرقم المرجعي fb/2026-151 بتاريخ 06/03/2026 بشأن الملف الكامل.",
         ) == [],
         "two reference codes on the same subject raise nothing",
     )
     check(
         conflicts(
-            "عُقدت الجلسة في 04/05/2026 بشأن المذكرة التكميلية للقضية.",
-            "صدر الحكم في 27/05/2026 بشأن المذكرة التكميلية للقضية.",
+            "عُقدت الجلسة في 23/07/2026 بشأن المذكرة التكميلية للقضية.",
+            "صدر الحكم في 13/08/2026 بشأن المذكرة التكميلية للقضية.",
         ) == [],
         "two different dates about the same matter are a sequence, not a contradiction",
     )
     check(
         conflicts(
-            "تقرير المختص الأول عن المشروع صدر ضمن الملف الكامل رقم 2026.",
-            "تقرير المختص الثاني عن المشروع صدر ضمن الملف الكامل رقم 2026.",
+            "تقرير الخبير الأول عن المشروع صدر ضمن الملف الكامل رقم 2026.",
+            "تقرير الخبير الثاني عن المشروع صدر ضمن الملف الكامل رقم 2026.",
         ) == [],
         "a shared year raises nothing",
     )
@@ -179,13 +179,13 @@ def real_contradictions_survive() -> None:
     print("\n-- 5. genuine disagreements are still found --")
 
     found = conflicts(
-        "قيمة غرامة التأخير القصوى للمشروع هي 50,000 درهم.",
+        "قيمة غرامة التأخير القصوى للمشروع هي 268,000 درهم.",
         "قيمة غرامة التأخير القصوى للمشروع هي 310,000 درهم.",
     )
     check(len(found) == 1, f"a disputed amount is reported ({len(found)})", described(found))
     if found:
         text = found[0].describe()
-        check("50000" in text and "310000" in text, "both values are preserved", text)
+        check("268000" in text and "310000" in text, "both values are preserved", text)
         check("[1]" in text and "[2]" in text, "both citations are preserved", text)
 
     found = conflicts(
@@ -218,8 +218,8 @@ def agreement_is_not_conflict() -> None:
 
     check(
         conflicts(
-            "قيمة العقد الإجمالية للمشروع 1,450,000 درهم كما اعتُمدت.",
-            "قيمة العقد الإجمالية للمشروع 1,450,000 درهم وفق الملحق الأول.",
+            "قيمة العقد الإجمالية للمشروع 2,680,000 درهم كما اعتُمدت.",
+            "قيمة العقد الإجمالية للمشروع 2,680,000 درهم وفق الملحق الأول.",
         ) == [],
         "the same value stated twice raises nothing",
     )
@@ -236,7 +236,7 @@ def every_conflict_is_explainable() -> None:
     print("\n-- 8. every reported conflict names its basis --")
 
     found = conflicts(
-        "قيمة غرامة التأخير القصوى للمشروع هي 50,000 درهم.",
+        "قيمة غرامة التأخير القصوى للمشروع هي 268,000 درهم.",
         "قيمة غرامة التأخير القصوى للمشروع هي 310,000 درهم.",
     )
     check(bool(found), "a conflict was produced to inspect")

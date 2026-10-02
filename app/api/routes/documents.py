@@ -53,6 +53,8 @@ async def upload_document(
     version: str | None = Form(default=None),
     date: str | None = Form(default=None),
     language: str | None = Form(default=None),
+    project: str | None = Form(default=None),
+    folder: str | None = Form(default=None),
     uploader: User = require(Permission.DOCUMENT_UPLOAD),
 ) -> DocumentResponse:
     """Accept a Markdown file and start background processing."""
@@ -64,6 +66,8 @@ async def upload_document(
         version=version or None,
         date=date or None,
         language=language or None,
+        project=clean_filename(project or "") or None,
+        folder=clean_filename(folder or "") or None,
     )
     filename = clean_filename(file.filename or "") or "untitled.md"
     logger.info("Upload by %s: %s", uploader.email, filename)
@@ -84,6 +88,7 @@ def list_documents(
     document_status: DocumentStatus | None = Query(default=None, alias="status"),
     category: str | None = Query(default=None),
     search: str | None = Query(default=None),
+    project: str | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ) -> DocumentListResponse:
@@ -94,6 +99,7 @@ def list_documents(
         search=search,
         limit=limit,
         offset=offset,
+        project=project,
     )
     return DocumentListResponse(
         total=total, items=[DocumentResponse.model_validate(item) for item in items]
@@ -105,6 +111,13 @@ def list_categories(
     session: SessionDep, service: DocumentServiceDep, _user: CurrentUserDep
 ) -> list[str]:
     return service.categories(session)
+
+
+@router.get("/projects", response_model=list[str])
+def list_projects(
+    session: SessionDep, service: DocumentServiceDep, _user: CurrentUserDep
+) -> list[str]:
+    return service.projects(session)
 
 
 @router.get("/stats", response_model=LibraryStats)

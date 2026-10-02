@@ -60,7 +60,7 @@ def normalize(text: str) -> str:
 # Light Arabic stemming: the definite-article family plus a few plural/feminine
 # endings. Applied to both documents and queries, so "السيناريوهات" in a document
 # matches "سيناريوهات" in a question. Single-letter clitics are deliberately left
-# alone because stripping them mangles names such as "وليد".
+# alone because stripping them mangles names such as "وضاح".
 AR_PREFIXES = ("وال", "فال", "بال", "كال", "لل", "ال")
 AR_SUFFIXES = ("اتها", "اتهم", "ياته", "ات", "ون", "ين", "يه", "ها", "هم", "كم", "نا")
 MIN_STEM_LENGTH = 3
@@ -174,7 +174,7 @@ WRITTEN_DATE = re.compile(
 def all_dates(text: str) -> set[tuple[int, int, int]]:
     """Every date the text states, however it spells it.
 
-    "05/03/2026" and "5 مارس 2026" are the same day, so a check that only reads
+    "10/02/2026" and "10 فبراير 2026" are the same day, so a check that only reads
     digits would call a correctly stated date missing.
     """
     normalised = normalize(text)

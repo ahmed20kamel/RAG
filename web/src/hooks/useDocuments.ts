@@ -7,6 +7,7 @@ export const documentKeys = {
   list: (query: DocumentQuery) => ['documents', 'list', query] as const,
   stats: ['documents', 'stats'] as const,
   categories: ['documents', 'categories'] as const,
+  projects: ['documents', 'projects'] as const,
   detail: (id: string) => ['documents', 'detail', id] as const,
   chunks: (id: string, offset: number) => ['documents', 'chunks', id, offset] as const,
   sections: (id: string) => ['documents', 'sections', id] as const,
@@ -50,6 +51,14 @@ export function useCategories() {
   return useQuery({
     queryKey: documentKeys.categories,
     queryFn: documentsApi.categories,
+    staleTime: 60_000,
+  })
+}
+
+export function useProjects() {
+  return useQuery({
+    queryKey: documentKeys.projects,
+    queryFn: documentsApi.projects,
     staleTime: 60_000,
   })
 }

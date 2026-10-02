@@ -7,7 +7,7 @@ with almost everything in the same file. Tightened until it was safe, it no long
 caught the case it existed for.
 
 So this does not touch ranking. When a document states plainly that a value is the one
-in force — "التكليف النافذة = 3 بنود فقط" — that sentence is quoted into the prompt
+in force — "المأمورية النافذة = 3 بنود فقط" — that sentence is quoted into the prompt
 above the sources, and arrives whether or not the passage carrying it ranked first.
 
 Two properties this suite exists to hold, and they matter more than the feature working:
@@ -66,7 +66,7 @@ def it_lifts_currency_statements() -> None:
     print("\n-- 1. a document stating which version is in force --")
 
     result = extract([
-        source(1, "بعد قراءة النص الفعلي للحكم المصحح، التكليف النافذة = 3 بنود فقط."),
+        source(1, "بعد قراءة النص الفعلي للحكم المصحح، المأمورية النافذة = 3 بنود فقط."),
         source(2, "| ~~4~~ | المواد المشونة والمعدات | ❌ **محذوف** |"),
     ])
     check(len(result.statements) == 2, f"كلا العبارتين مُستخرَجة ({len(result.statements)})")
@@ -84,7 +84,7 @@ def it_lifts_currency_statements() -> None:
 def it_quotes_rather_than_summarises() -> None:
     print("\n-- 2. every line is a span of the source, not a summary --")
 
-    excerpt = "التكليف النافذة الرسمية = 3 بنود فقط بعد التصحيح."
+    excerpt = "المأمورية النافذة الرسمية = 3 بنود فقط بعد التصحيح."
     result = extract([source(1, excerpt)])
     check(bool(result.statements), "استُخرجت عبارة")
     if result.statements:
@@ -102,7 +102,7 @@ def it_stays_silent_without_a_cue() -> None:
 
     quiet = [
         "تُقدَّم المطالبة خلال ثمانية وعشرين يوماً من الواقعة وفق البند عشرين.",
-        "قيمة العقد الإجمالية 1,450,000 درهم كما اعتُمدت في الملحق الأول.",
+        "قيمة العقد الإجمالية 2,680,000 درهم كما اعتُمدت في الملحق الأول.",
         "تُركّب حواجز الحماية حول الحفر العميق قبل بدء أعمال التدعيم.",
         "The maximum unsupported excavation depth in loose sand is 1.5 m.",
         "عُقدت الجلسة الخامسة وقُدمت المذكرة التكميلية الثالثة.",
@@ -130,7 +130,7 @@ def it_never_floods_the_prompt() -> None:
     print("\n-- 5. a file using the words in passing cannot take over the prompt --")
 
     many = [
-        source(i, f"البند {i} من التكليف النافذة رقم {i} محذوف بعد التصحيح.")
+        source(i, f"البند {i} من المأمورية النافذة رقم {i} محذوف بعد التصحيح.")
         for i in range(1, 20)
     ]
     result = extract(many)
@@ -138,16 +138,16 @@ def it_never_floods_the_prompt() -> None:
         len(result.statements) <= MAX_LINES,
         f"العدد مقتصّ عند {MAX_LINES} ({len(result.statements)})",
     )
-    # Truncated, not discarded: dropping the whole block once it grows past the cap
-    # would throw away the lines that settle the question because other passages use
-    # the word in passing.
+    # Truncated, not discarded: an earlier version dropped the whole block once it grew
+    # past the cap, which threw away the lines that settled the question because other
+    # passages had used the word in passing.
     check(bool(result.statements), "ومع ذلك الكتلة ليست فارغة")
 
 
 def duplicates_are_collapsed() -> None:
     print("\n-- 6. the same sentence in three passages is quoted once --")
 
-    line = "التكليف النافذة = 3 بنود فقط بعد التصحيح."
+    line = "المأمورية النافذة = 3 بنود فقط بعد التصحيح."
     result = extract([source(1, line), source(2, line), source(3, line)])
     check(len(result.statements) == 1, f"مرة واحدة ({len(result.statements)})")
 

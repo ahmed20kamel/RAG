@@ -6,12 +6,12 @@ version history, the list of artefacts it produced, an index, an integrity card.
 are legitimate content and both are worth retrieving; they simply answer different
 questions.
 
-The failure this module prevents is specific: a question about the current position of
-a matter can spend six of its fourteen retrieval slots on the file's own changelog and
-its list of generated files, because the question contains the words "file", "update"
-and "latest" and those sections are titled with exactly those words. Nearly half the
-evidence budget then goes to bookkeeping, and the decisive section never reaches the
-answer.
+The failure this module exists to prevent is specific and was measured: a question about
+the current position of a matter spent six of its fourteen retrieval slots on the file's
+own changelog and its list of generated files, because the question happened to contain
+the words "file", "update" and "latest" and those sections are titled with exactly those
+words. Nearly half the evidence budget went to bookkeeping, and the decisive section
+never made it into the answer.
 
 The fix is a re-weighting, not a filter. Nothing is ever excluded:
 

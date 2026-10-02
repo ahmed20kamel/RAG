@@ -195,6 +195,9 @@ export interface DocumentResponse {
   filename: string
   title: string
   category: string
+  /** The project folder it was uploaded from, and its folder inside it; empty for a single file. */
+  project: string
+  folder: string
   source: string
   version: string
   doc_date: string
@@ -333,4 +336,7 @@ export interface UploadMetadata {
   version?: string
   date?: string
   language?: string
+  /** From a folder upload. */
+  project?: string
+  folder?: string
 }

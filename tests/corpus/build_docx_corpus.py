@@ -18,7 +18,6 @@ from docx import Document
 from docx.shared import Pt
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))
 sys.stdout.reconfigure(encoding="utf-8")
 
 
@@ -49,7 +48,7 @@ def styled_headings() -> Document:
 
     document.add_heading("غرامة التأخير", level=2)
     document.add_paragraph(
-        "تُحتسب غرامة التأخير بواقع 1,450.00 درهم عن كل يوم تأخير، "
+        "تُحتسب غرامة التأخير بواقع 1,985.19 درهم عن كل يوم تأخير، "
         "بحد أقصى 10% من قيمة العقد."
     )
 
@@ -186,14 +185,7 @@ def build() -> None:
     # financial_summary.xlsx here made this a byte-identical duplicate of a document
     # already indexed, and the upload was correctly rejected as a duplicate before
     # the type check it was meant to exercise ever ran.
-    # The workbook this borrows comes from the spreadsheet builder, so on a clean
-    # checkout that builder has to have run first.
-    ledger = HERE / "large_ledger.xlsx"
-    if not ledger.exists():
-        import build_xlsx_corpus
-
-        build_xlsx_corpus.build()
-    (HERE / "renamed_xlsx.docx").write_bytes(ledger.read_bytes())
+    (HERE / "renamed_xlsx.docx").write_bytes((HERE / "large_ledger.xlsx").read_bytes())
     print("  corrupt.docx / renamed_xlsx.docx  (rejection cases)")
 
 

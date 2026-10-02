@@ -140,7 +140,7 @@ OVERVIEW_CUES = (
 OVERVIEW_PATTERN = _phrase_pattern(OVERVIEW_CUES)
 
 #: Tokens that say nothing about the language a question is asked in: file names,
-#: identifiers and codes. "احكيلي عن ملف project_notes.md" has more Latin
+#: identifiers and codes. "احكيلي عن ملف PROJECT_MIGRATION_SUMMARY.md" has more Latin
 #: letters than Arabic ones, and counting them answered an Arabic question in English.
 _NOT_LANGUAGE = re.compile(r"\S*[_./\\@]\S*|(?<![\w؀-ۿ])[A-Z0-9][A-Z0-9-]{2,}(?![\w؀-ۿ])")
 

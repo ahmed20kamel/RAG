@@ -1,9 +1,10 @@
 """Time-aware ranking: when newer evidence should win, and when it must not.
 
-The failure this suite prevents: asked for the latest stage of a matter, a system that
-does not know one date is later than another answers from evidence that stops before
-the decisive ruling — with the same confidence it uses to quote a clause. The ruling is
-indexed and reachable; it simply never outranks the older sections.
+The failure this suite exists to prevent was measured, not imagined. Asked for the
+latest stage of a matter, the system answered from evidence that stopped five days
+before the decisive ruling — and said so with the same confidence it uses to quote a
+clause. The ruling was indexed and reachable; it simply never outranked the older
+sections, because nothing in the ranking knew that one date is later than another.
 
 Half of what follows is the opposite check. A system that always prefers newer evidence
 has not learned about time, it has learned a bias: it would answer "what was originally
@@ -118,7 +119,7 @@ def intent_detection() -> None:
 
     # An explicit date is a better statement of intent than any cue list can infer, so
     # it switches the generic preference off rather than adding to it.
-    for question in ("ماذا حدث بتاريخ 15/08/2026؟", "ما قرار 19 يوليو 2026؟"):
+    for question in ("ماذا حدث بتاريخ 13/08/2026؟", "ما قرار 19 يوليو 2026؟"):
         intent = read_intent(question)
         check(bool(intent.explicit_dates), f"explicit date read: {question}")
         check(not intent.wants_latest, f"and no generic recency preference: {question}")
@@ -143,7 +144,7 @@ def evidence_dates() -> None:
     print("\n-- 2. the date a passage is about --")
 
     check(
-        evidence_date("القرار النهائي (15/08/2026)", "", "") == (2026, 8, 15),
+        evidence_date("الحكم القطعي (13/08/2026)", "", "") == (2026, 8, 13),
         "a date in the heading is read",
     )
     check(
@@ -189,7 +190,7 @@ def latest_wins_when_asked() -> None:
                   "انعقدت الجلسة وقُدمت المذكرة التكميلية الثالثة بشأن القضية."),
         candidate("mid", "المسار → التقرير النهائي (08/08/2026)",
                   "أُودع التقرير النهائي للخبير بشأن القضية في أربع وعشرين صفحة."),
-        candidate("new", "المسار → الحكم القطعي (15/08/2026)",
+        candidate("new", "المسار → الحكم القطعي (13/08/2026)",
                   "حكمت المحكمة بانتهاء الدعوى بشأن القضية وفقاً لتقرير الخبرة."),
     ]
     ranked = order("ما آخر مرحلة وصلت إليها القضية؟", pool)
@@ -222,9 +223,9 @@ def explicit_date_beats_recency() -> None:
 
     pool = [
         candidate("named", "المسار → جلسة (19/07/2026)",
-                  "صدر في هذا التاريخ قرار بشأن ندب المختص وتحديد التكليف."),
-        candidate("newest", "المسار → الحكم (15/08/2026)",
-                  "صدر الحكم القطعي بانتهاء الدعوى بشأن التكليف والخبرة."),
+                  "صدر في هذا التاريخ قرار بشأن ندب الخبير وتحديد المأمورية."),
+        candidate("newest", "المسار → الحكم (13/08/2026)",
+                  "صدر الحكم القطعي بانتهاء الدعوى بشأن المأمورية والخبرة."),
     ]
     ranked = order("ماذا تقرر بتاريخ 19/07/2026؟", pool)
     check(
@@ -308,7 +309,7 @@ def adjustments_are_explainable() -> None:
     print("\n-- 9. every adjustment can be accounted for --")
 
     pool = [
-        candidate("new", "المسار → الحكم (15/08/2026)", "صدر الحكم بشأن القضية."),
+        candidate("new", "المسار → الحكم (13/08/2026)", "صدر الحكم بشأن القضية."),
         candidate("old", "المسار → جلسة (23/07/2026)", "انعقدت الجلسة بشأن القضية."),
     ]
     analysis = ANALYZER.analyze("ما آخر مرحلة في القضية؟")
@@ -317,7 +318,7 @@ def adjustments_are_explainable() -> None:
     check(top.recency_boost > 0, "the boost is recorded as a number, not folded away")
     check(bool(top.rank_notes), "a note explains it", str(top.rank_notes))
     check(
-        top.date_label == "15/08/2026",
+        top.date_label == "13/08/2026",
         "and names the date it was based on",
         top.date_label,
     )
@@ -334,7 +335,7 @@ def multiple_dates_in_one_document() -> None:
     pool = [
         candidate(f"s{i}", f"المسار → مرحلة ({d})", f"وقائع المرحلة بشأن المشروع رقم {i}.")
         for i, d in enumerate(
-            ["05/01/2026", "14/03/2026", "23/07/2026", "08/08/2026", "15/08/2026"]
+            ["05/01/2026", "14/03/2026", "23/07/2026", "08/08/2026", "13/08/2026"]
         )
     ]
     ranked = order("ما أحدث مرحلة في المشروع؟", pool)

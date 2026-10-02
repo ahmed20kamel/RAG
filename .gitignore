@@ -1,17 +1,39 @@
 .venv/
 __pycache__/
 *.pyc
+
+# Settings and every backup of them: keys and passwords.
 .env
+.env.*
+!.env.example
+
+# Case files, the database and everything derived from them.
 data/
 
-# Web client
+# Web client. The built client is committed: the media PC serves it as it is and has no
+# Node to build it with. Rebuild it (npm run build) before committing a web change.
 web/node_modules/
-web/dist/
 web/.env
 web/coverage/
 
 # Local artefacts: model weights (re-downloadable) and backup archives (hold secrets)
 models/
 backups/
-.env.restored-*
-.env.before-*
+tools/
+
+# Evaluation material built from real case files: the documents, the questions asked of
+# them and every recorded answer. The suites below quote the same files. They stay on
+# the machine that holds the case data and are never pushed.
+tests/eval/golden_corpus/
+tests/eval/results/
+tests/eval/dataset.py
+tests/eval/probes.py
+tests/test_completeness.py
+tests/test_intelligence.py
+tests/extract_knowledge_from_summary.py
+
+# Runtime files of an installed copy (C:\RAG on the media PC).
+/qdrant/
+/start-qdrant.cmd
+/start-server.cmd
+/.deploy/

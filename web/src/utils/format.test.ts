@@ -3,8 +3,8 @@ import { breadcrumbParts, fileExtension, formatBytes, formatNumber, formatPercen
 
 describe('formatNumber', () => {
   it('uses Western digits in Arabic, because the documents state values that way', () => {
-    expect(formatNumber(50000, 'ar')).toMatch(/50/)
-    expect(formatNumber(50000, 'ar')).not.toMatch(/[٠-٩]/)
+    expect(formatNumber(268000, 'ar')).toMatch(/268/)
+    expect(formatNumber(268000, 'ar')).not.toMatch(/[٠-٩]/)
   })
 })
 

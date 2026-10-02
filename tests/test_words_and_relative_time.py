@@ -1,6 +1,7 @@
 """Numbers written as words, and time stated relative to today.
 
-Both are read deterministically, and each is tested twice: the reader alone, on its own traps, and then
+Two gaps that were documented as things the system does not do, and are now read
+deterministically. Each is tested twice: the reader alone, on its own traps, and then
 at the point where it changes behaviour — the validator, the keyword index, ranking and
 the prompt — because a reader that works in isolation and is never consulted fixes
 nothing.
@@ -115,7 +116,7 @@ def the_validator_accepts_a_value_stated_in_words() -> None:
 
     bare = AnswerValidator._unsupported_values(answer, context, [])
     check(sorted(bare) == ["120", "25,000"],
-          "reading the excerpts alone, both are flagged", str(bare))
+          "reading the excerpts alone, both are flagged (the old false alarm)", str(bare))
 
     widened = AnswerValidator._unsupported_values(
         answer, RagService._verifiable(context, None), []
@@ -194,7 +195,7 @@ def phrasing_that_is_not_a_period() -> None:
 
 def an_explicit_date_still_wins() -> None:
     print("\n-- 8. a named date keeps precedence over a relative one --")
-    intent = read_intent("ما الذي حدث في 15/08/2026 وليس الأسبوع الماضي؟")
+    intent = read_intent("ما الذي حدث في 13/08/2026 وليس الأسبوع الماضي؟")
     check(bool(intent.explicit_dates) and intent.window is None, "the named date is used")
 
 

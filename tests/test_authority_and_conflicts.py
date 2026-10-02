@@ -177,7 +177,7 @@ def knowledge_scope_decides() -> None:
 def ambiguous_documents_are_never_silently_resolved() -> None:
     print("\n-- 6. two documents disagree and nothing entitles either to win --")
     sources = [
-        doc(1, "قيمة غرامة التأخير القصوى للمشروع هي 50,000 درهم", filename="أ.md", document_id="d1"),
+        doc(1, "قيمة غرامة التأخير القصوى للمشروع هي 268,000 درهم", filename="أ.md", document_id="d1"),
         doc(2, "قيمة غرامة التأخير القصوى للمشروع هي 310,000 درهم", filename="ب.md", document_id="d2"),
     ]
     # Neither document declares a status, a rank, a date or a version.
@@ -189,7 +189,7 @@ def ambiguous_documents_are_never_silently_resolved() -> None:
     check(conflict.decision.basis is Basis.UNRESOLVED, "the basis is recorded as unresolved")
 
     described = conflict.describe()
-    check("50,000" in described or "50000" in described, "the first value is preserved")
+    check("268,000" in described or "268000" in described, "the first value is preserved")
     check("310,000" in described or "310000" in described, "the second value is preserved")
     check("[1]" in described and "[2]" in described, "both citations are preserved")
     check("فاعرضهما معًا" in described, "the instruction is to show both, not to choose")
@@ -198,7 +198,7 @@ def ambiguous_documents_are_never_silently_resolved() -> None:
 def ambiguous_documents_resolve_once_metadata_exists() -> None:
     print("\n-- 6b. the same pair resolves once an operator declares authority --")
     sources = [
-        doc(1, "قيمة غرامة التأخير القصوى للمشروع هي 50,000 درهم", document_id="d1"),
+        doc(1, "قيمة غرامة التأخير القصوى للمشروع هي 268,000 درهم", document_id="d1"),
         doc(2, "قيمة غرامة التأخير القصوى للمشروع هي 310,000 درهم", document_id="d2"),
     ]
     authority = {
@@ -266,8 +266,8 @@ def coincidences_are_not_conflicts() -> None:
     check(DETECTOR.detect(sources, []) == [], "unrelated passages raise nothing")
 
     agreeing = [
-        doc(1, "قيمة العقد 1,450,000 درهم معتمدة", document_id="d1"),
-        doc(2, "قيمة العقد 1,450,000 درهم كما في الملحق", document_id="d2"),
+        doc(1, "قيمة العقد 2,680,000 درهم معتمدة", document_id="d1"),
+        doc(2, "قيمة العقد 2,680,000 درهم كما في الملحق", document_id="d2"),
     ]
     check(DETECTOR.detect(agreeing, []) == [], "passages that agree raise nothing")
 
@@ -283,8 +283,11 @@ def coincidences_are_not_conflicts() -> None:
 
 # -- 9b. values spelled out in words are compared like digits ------------
 def numbers_written_as_words_are_compared() -> None:
-    """The risk in reading Arabic number words is inventing a conflict that does not
-    exist, so the capability is asserted together with its guard: the same value written once in words and once in digits must not
+    """This was recorded as a known limitation, and the test asserted the miss.
+
+    The concern that kept it unfixed was that a wrong parse of Arabic number words
+    would invent a conflict that does not exist. So the capability is asserted together
+    with its guard: the same value written once in words and once in digits must not
     be reported, and neither must a fraction that looks like a number ("عُشر").
     """
     print("\n-- 9b. values spelled out in words are compared like digits --")

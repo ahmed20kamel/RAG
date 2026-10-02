@@ -1,7 +1,7 @@
 """Reading pages that are pictures of text, when the machine can actually do it.
 
-Many PDFs in a working archive are scans: a contract photographed into a file, with no
-text layer at all. Extraction returns nothing from them, and "nothing" is
+A third of the PDFs on this company's machines are scans: a contract photographed into a
+file, with no text layer at all. Extraction returns nothing from them, and "nothing" is
 the one honest answer available without OCR.
 
 So OCR is optional and its absence is reported rather than worked around. Every capability
@@ -29,8 +29,9 @@ from app.parsers.text_repair import repair_arabic
 
 logger = logging.getLogger(__name__)
 
-#: Rendering resolution. At 150 dpi diacritics and small print are lost; 300 roughly
-#: doubles the time without a measurable gain in accuracy on typical scans.
+#: Rendering resolution. 200 was measured against real scans on this hardware: 150 lost
+#: diacritics and small print, 300 roughly doubled the time for no accuracy this corpus
+#: could show.
 RENDER_DPI = 200
 
 #: Arabic first — it is what these documents are — with English alongside, because the

@@ -131,7 +131,7 @@ def documents_still_answer_without_knowledge(client: httpx.Client) -> None:
     check(answer["grounded"] is True, "a document question is still answered")
     check(len(answer["sources"]) > 0, "and still cites document sources")
     check(
-        "B1N-2023-004410-P01" in answer["answer"],
+        "B1N-2024-005221-P01" in answer["answer"],
         "with the value the documents actually state",
     )
     # Directives apply to every answer by design; what must not appear is a taught *fact*

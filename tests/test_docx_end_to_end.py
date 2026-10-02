@@ -173,7 +173,7 @@ def one_question_draws_on_word_and_excel(client: httpx.Client) -> None:
         "the Word figure is in the answer",
     )
     check(
-        "1450000" in answer["answer"] or "1,450,000" in answer["answer"],
+        "2680000" in answer["answer"] or "2,680,000" in answer["answer"],
         "and so is the workbook figure",
     )
 
@@ -182,7 +182,7 @@ def markdown_still_answers_as_before(client: httpx.Client) -> None:
     print("\n-- 7. the Markdown corpus is still untouched --")
     answer = ask(client, "ما رقم العقد المعتمد للمشروع؟")
     check(answer["grounded"], "the contract question still answers")
-    check("B1N-2023-004410-P01" in answer["answer"], "with the same value as always")
+    check("B1N-2024-005221-P01" in answer["answer"], "with the same value as always")
     check(
         all(
             not s.get("locator")

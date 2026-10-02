@@ -119,7 +119,7 @@ def a_value_on_another_page_is_not_confused(client: httpx.Client) -> None:
     print("\n-- 4. a value from a different page is cited to that page --")
     answer = ask(client, "ما قيمة ضمان حسن التنفيذ؟")
     check(answer["grounded"], "answered")
-    check("50,000" in answer["answer"] or "50000" in answer["answer"], "the figure is right")
+    check("268,000" in answer["answer"] or "268000" in answer["answer"], "the figure is right")
 
     mine = [s for s in answer.get("sources", []) if s["filename"] == "structured.pdf"]
     if mine:
@@ -183,14 +183,14 @@ def one_question_draws_on_all_three_formats(client: httpx.Client) -> None:
     text = answer["answer"]
     check("4,250" in text or "4250" in text, "the PDF figure is in the answer")
     check("804000" in text or "804,000" in text, "the Word figure too")
-    check("1450000" in text or "1,450,000" in text, "and the workbook figure")
+    check("2680000" in text or "2,680,000" in text, "and the workbook figure")
 
 
 def markdown_still_answers_as_before(client: httpx.Client) -> None:
     print("\n-- 7. the Markdown corpus is still untouched --")
     answer = ask(client, "ما رقم العقد المعتمد للمشروع؟")
     check(answer["grounded"], "the contract question still answers")
-    check("B1N-2023-004410-P01" in answer["answer"], "with the same value as always")
+    check("B1N-2024-005221-P01" in answer["answer"], "with the same value as always")
     check(
         all(
             not s.get("locator")

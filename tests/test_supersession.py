@@ -3,9 +3,9 @@
 The measured failure: one question, three answers living side by side in the same file,
 and three different phrasings of the question returned three different numbers.
 
-    "كم بندًا في التكليف النافذة؟"      → 3   ✅ (the phrasing happened to say النافذة)
-    "ما بنود تكليف المختص؟"             → 7   ❌
-    "كم بندًا كلّف الحكمُ المختصَ به؟"     → 5   ❌
+    "كم بندًا في المأمورية النافذة؟"      → 3   ✅ (the phrasing happened to say النافذة)
+    "ما بنود مأمورية الخبير؟"             → 7   ❌
+    "كم بندًا كلّف الحكمُ الخبيرَ به؟"     → 5   ❌
 
 All three passages were retrieved every time. The model answered with whichever ranked
 first, and nothing in the ranking knew that one of them had been superseded by the
@@ -80,8 +80,8 @@ def standing_is_read() -> None:
 
     current = [
         ("🔴 قراءة نهائية دقيقة للحكم المصحح — تصحيحاً لخطأ سابق", ""),
-        ("🔔 التذكيرات الدائمة", "التكليف النافذة الرسمية = 3 بنود فقط."),
-        ("التكليف", "الصيغة النافذة بعد التصحيح تشمل ثلاثة بنود."),
+        ("🔔 التذكيرات الدائمة", "المأمورية النافذة الرسمية = 3 بنود فقط."),
+        ("المأمورية", "الصيغة النافذة بعد التصحيح تشمل ثلاثة بنود."),
         ("Scope", "This is the corrected version, in force from the ruling."),
         ("Schedule", "Final version — supersedes the earlier annex."),
     ]
@@ -90,7 +90,7 @@ def standing_is_read() -> None:
         check(status.is_current, f"في السريان: {section[:46]}", f"cue={status.cue!r}")
 
     superseded = [
-        ("تكليف المختص", "نسخة قديمة قبل التصحيح — لم تعد سارية."),
+        ("مأمورية الخبير", "نسخة قديمة قبل التصحيح — لم تعد سارية."),
         ("الملحق الأول", "هذا البند ملغى بموجب الملحق الثاني."),
         ("Annex A", "Superseded by Annex B."),
         ("Rates", "Previous version — no longer in force."),
@@ -102,7 +102,7 @@ def standing_is_read() -> None:
     # The ordinary case, and the one that matters most: silence.
     neutral = [
         ("إجراءات المطالبات وإدارة التأخير", "تُقدَّم المطالبة خلال ثمانية وعشرين يوماً."),
-        ("تكليف المختص (5 بنود)", "بيان الأعمال ونسبتها، والمطابقة، والمخالفات."),
+        ("مأمورية الخبير (5 بنود)", "بيان الأعمال ونسبتها، والمطابقة، والمخالفات."),
         ("Method statement", "Shoring is installed before excavation begins."),
         ("جدول المدفوعات", "الدفعة الأولى عند التوقيع والثانية عند التسليم."),
         ("التسلسل الزمني", "عُقدت الجلسة وقُدمت المذكرة التكميلية."),
@@ -125,7 +125,7 @@ def a_correction_is_not_a_casualty() -> None:
     status = read_status(
         "🔴 قراءة نهائية دقيقة للحكم المصحح",
         "",
-        "التكليف النافذة = 3 بنود فقط. ~~4~~ المواد المشونة ❌ محذوف. ~~5~~ الكفالات ❌ محذوف.",
+        "المأمورية النافذة = 3 بنود فقط. ~~4~~ المواد المشونة ❌ محذوف. ~~5~~ الكفالات ❌ محذوف.",
     )
     check(status.is_current, "الجدول الذي يعلن الحذف يُقرأ كسارٍ", str(status))
     check(not status.is_superseded, "ولا يُقرأ كملغى")
@@ -139,19 +139,19 @@ def a_correction_is_not_a_casualty() -> None:
 EFFECTIVE = candidate(
     "effective",
     "الملف → 🔴 قراءة نهائية دقيقة للحكم المصحح 16/07 — تصحيحاً لخطأ سابق",
-    "التكليف النافذة = 3 بنود فقط: بيان الأعمال ونسبتها، والمطابقة للمخططات، "
+    "المأمورية النافذة = 3 بنود فقط: بيان الأعمال ونسبتها، والمطابقة للمخططات، "
     "وتحديد المخالفات وعيوب التنفيذ. البند 4 والبند 5 محذوفان.",
 )
 EARLIER = candidate(
     "earlier",
-    "الملف → تكليف المختص (5 بنود)",
+    "الملف → مأمورية الخبير (5 بنود)",
     "بيان الأعمال ونسبتها، والمطابقة للمخططات والمواصفات، وتحديد المخالفات، "
     "والمواد المشونة والمعدات، والكفالات والضمانات المالية.",
 )
 ORIGINAL = candidate(
     "original",
     "الملف → طلبات صحيفة الدعوى",
-    "المطلوب من المختص: إثبات حالة السور، وبيان الأعمال، وأسباب الانهيار، "
+    "المطلوب من الخبير: إثبات حالة السور، وبيان الأعمال، وأسباب الانهيار، "
     "وحصر الأضرار، والأثر الزمني، وسماع الأطراف، والانتقال للبلدية.",
 )
 
@@ -163,9 +163,9 @@ def the_version_in_force_wins() -> None:
     # The three phrasings that produced three different numbers. None of the last two
     # contains a word that disambiguates the version; that is the point.
     for question in (
-        "كم بندًا في التكليف النافذة للخبير؟",
-        "ما بنود تكليف المختص؟",
-        "كم بندًا كلّف الحكمُ المختصَ به؟",
+        "كم بندًا في المأمورية النافذة للخبير؟",
+        "ما بنود مأمورية الخبير؟",
+        "كم بندًا كلّف الحكمُ الخبيرَ به؟",
         "what is the expert's scope of work?",
     ):
         ranked = order(question, pool)
@@ -221,7 +221,7 @@ def relevance_still_outranks_standing() -> None:
         candidate(
             "relevant",
             "الملف → غرامة التأخير",
-            "قيمة غرامة التأخير اليومية 1,450.00 درهماً بحد أقصى مئتين وثمانية وستين ألفاً.",
+            "قيمة غرامة التأخير اليومية 1,985.19 درهماً بحد أقصى مئتين وثمانية وستين ألفاً.",
             vector=0.90,
         ),
         candidate(
@@ -242,7 +242,7 @@ def relevance_still_outranks_standing() -> None:
 def adjustments_are_explainable() -> None:
     print("\n-- 7. the demotion is recorded, and nothing is promoted --")
 
-    analysis = ANALYZER.analyze("ما بنود تكليف المختص؟")
+    analysis = ANALYZER.analyze("ما بنود مأمورية الخبير؟")
     ranked = RERANKER.rerank(analysis, [ORIGINAL, EARLIER, EFFECTIVE], limit=3)
     by_id = {c.chunk_id: c for c in ranked}
 

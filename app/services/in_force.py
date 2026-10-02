@@ -13,7 +13,7 @@ about excavation inspection forms came back with no evidence at all. Tightened u
 was safe, it no longer caught the case it existed for.
 
 So this does not touch ranking. When a passage states plainly that a particular value is
-the one in force — "<البند> النافذ = <القيمة>" — that sentence is lifted out and put
+the one in force — "المأمورية النافذة = 3 بنود فقط" — that sentence is lifted out and put
 in front of the model as its own line, above the sources. It arrives whether or not the
 passage that carried it ranked first, which is the whole point: the answer stops
 depending on the ordering of evidence that all of it can see anyway.
@@ -107,7 +107,7 @@ MIN_LINE = 12
 MAX_LINE = 320
 
 #: A statement without a value is an assertion about nothing. "النسخة النافذة معتمدة"
-#: tells a reader nothing they can act on; "النطاق النافذ = 3 بنود" does.
+#: tells a reader nothing they can act on; "المأمورية النافذة = 3 بنود" does.
 HAS_VALUE = re.compile(r"\d")
 
 #: How many lines may reach the prompt. Enough for a correction and the deletions that
@@ -152,10 +152,11 @@ class InForceSet:
         """
         if not self.statements:
             return ""
-        # The wording is directive because a description is not enough. Told merely
-        # that these lines "determine which version applies", a model tends to lead
-        # with the superseded value and add the correction as a footnote — complete,
-        # and misread by anyone skimming. Saying plainly what to put first prevents it.
+        # The wording is directive because the measurement showed a description was not
+        # enough. Told merely that these lines "determine which version applies", the
+        # model led with the seven superseded items and added the correction as a
+        # footnote — technically complete, and read by anyone skimming as the answer
+        # being seven. Saying plainly what to put first changed that.
         lines = [
             "=== النسخة النافذة — ما يقوله المستند عن نفسه (منقول حرفيًا) ===",
             "(إلزامي: هذه العبارات تُبيّن أي نسخة من المعلومة سارية الآن. إن تعارضت مع "
@@ -209,9 +210,9 @@ def extract(sources: list) -> InForceSet:
 
     # Currency statements first: they say what *is*, and the deletions that follow say
     # what is not, which only means something once the reader knows the former. The list
-    # is then truncated rather than discarded: dropping the whole block once it grows
-    # past the cap would throw away the lines that settle the question, just because
-    # passages elsewhere use the word "محذوف" in passing.
+    # is then truncated rather than discarded — an early version dropped the whole block
+    # once it grew past the cap, which threw away the three lines that settled the
+    # question because a dozen passages elsewhere had used the word "محذوف" in passing.
     found.sort(key=lambda s: (s.kind != "in_force", s.citation))
     return InForceSet(statements=found[:MAX_LINES])
 
@@ -253,7 +254,7 @@ def extract_for_documents(sources: list, document_ids: list[str]) -> InForceSet:
 
     This is the correction that made the mechanism work. Reading the retrieved excerpts
     alone inherited the very problem it was built to solve: when the passage carrying
-    the passage carrying "النافذة = <القيمة>" did not rank, there was nothing to lift, and the
+    "المأمورية النافذة = 3 بنود" did not rank, there was nothing to lift out, and the
     block was empty on exactly the questions that needed it.
 
     So the documents already in play are searched directly for sentences that declare

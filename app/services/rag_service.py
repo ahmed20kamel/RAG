@@ -150,10 +150,10 @@ def PART_MARKER(index: int) -> re.Pattern[str]:  # noqa: N802 - reads as a const
 # and only when evidence was actually retrieved.
 #
 # It exists because refusing on a wording mismatch is a different failure from refusing
-# on absent knowledge, and without this the two look identical to the reader. Asked
-# for the date of an inspection using a word the files never use, the system retrieves
-# the passages that hold it and refuses anyway. The evidence is there; only the word
-# is not.
+# on absent knowledge, and the two were indistinguishable to the reader. Asked for the
+# date of "محضر اختبار الخبير", the system retrieved eight passages about "محضر
+# المعاينة" — the same event under the name the file uses — and answered "not enough
+# information". The evidence was there; only the word was not.
 #
 # What this is NOT is a second attempt at guessing. The model is required to name the
 # interpretation it is answering under, to cite it, and to say plainly that the asked-for
@@ -568,8 +568,8 @@ class RagService:
         The excerpts, plus two things the system itself supplied and the model may
         legitimately repeat: the digits of values the sources state in words ("ثلاثون
         يومًا" supports an answer saying 30), and the dates of a relative period it
-        resolved. Without them a correct answer would be reported as stating values
-        the sources do not contain.
+        resolved. Without them a correct answer was reported as stating values the
+        sources do not contain.
         """
         extra = digit_forms(context)
         if window is not None:
@@ -614,8 +614,8 @@ class RagService:
         ]
         timings["knowledge_ms"] = self._elapsed_ms(started)
         if not eligible:
-            # The conflict refusal below says why it happened, and so does this one:
-            # silent, a refusal here would be indistinguishable from the mode being
+            # The conflict refusal below says why it happened; this one used to be
+            # silent, which made a refusal here indistinguishable from the mode being
             # off. The scores are named because the threshold is the thing being tuned.
             best = max(scores.values(), default=0.0)
             logger.info(
@@ -1234,8 +1234,9 @@ class RagService:
                 complete=False,
                 # Naming the sections that were read is the difference between a dead
                 # end and a next step. A reader told only "not enough information" has
-                # nowhere to go; a reader shown which sections the search landed on can
-                # see the word the file actually uses and ask again in its language.
+                # nowhere to go; a reader shown that the search landed on "المعاينة
+                # الميدانية" while they asked about "اختبار" can see the word the file
+                # actually uses and ask again in its language.
                 warnings=(
                     [
                         f"استُرجع {retrieved} مقطعًا ولم يجد النموذج فيها إجابة "

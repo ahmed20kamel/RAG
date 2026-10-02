@@ -71,7 +71,7 @@ def a_figure_keeps_the_column_it_belongs_to() -> None:
             f"VAT for Orion reads back as 92000 (got {paired.get('ضريبة القيمة المضافة')!r})",
         )
         check(
-            paired.get("قيمة العقد") == "1450000",
+            paired.get("قيمة العقد") == "2680000",
             "and the contract value is under its own column",
         )
 
@@ -119,9 +119,9 @@ def presentation_form_arabic_is_repaired() -> None:
     print("\n-- 7. Arabic stored as display glyphs becomes Arabic letters --")
     doc = parse("presentation_forms.xlsx")
     whole = "\n".join(s.content for s in doc.sections)
-    check("الجهة الطالبة" in whole, "the text reads as ordinary Arabic")
-    check("شركة المقاولات الوطنية" in whole, "the name too")
-    check("قضية رقم 4471" in whole, "and the tatweel is gone from 'رقــم'")
+    check("نيابة مرور أبو ظبي" in whole, "the text reads as ordinary Arabic")
+    check("علاء ثروت محمد" in whole, "the name too")
+    check("قضية رقم 200137" in whole, "and the tatweel is gone from 'رقــم'")
     check(
         not any("ﭐ" <= c <= "﻿" for c in whole),
         "no presentation form is left anywhere",
@@ -175,7 +175,7 @@ def structured_data_keeps_what_rendering_flattened() -> None:
     check(block.structured_data is not None, "structured_data is populated")
     if block.structured_data:
         flat = [cell for row in block.structured_data for cell in row]
-        check("1450000" in flat, "a figure is present as its own cell, not inside a line")
+        check("2680000" in flat, "a figure is present as its own cell, not inside a line")
         check("ضريبة القيمة المضافة" in flat, "and so is its column name")
 
 

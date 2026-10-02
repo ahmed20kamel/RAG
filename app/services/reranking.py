@@ -51,22 +51,24 @@ W_METADATA_BONUS = 0.4
 
 #: Removed from a passage that a competing passage has superseded.
 #:
-#: Only ever subtracted, never added. A bonus for declaring itself in force would be
-#: wrong: asked about delay penalties, a passage about another subject would rank
-#: first purely for carrying the words "النسخة النافذة". A statement about which
-#: version counts says nothing about whether the subject is the one asked about.
+#: Only ever subtracted, never added. The first version of this gave a passage a bonus
+#: for declaring itself in force, and the measurement showed why that is wrong: asked
+#: about delay penalties, a passage about the expert's scope ranked first purely for
+#: carrying the words "النسخة النافذة". A statement about which version counts says
+#: nothing about whether the subject is the one asked about.
 #:
 #: So nothing is promoted. A superseded passage is demoted, and only when a rival
 #: passage about the same subject says it is the one in force — which is the only
 #: situation in which being superseded means anything at all.
 W_STANDING = 1.0
 
-#: What it takes for one passage to supersede another. Three conditions, all required.
+#: What it takes for one passage to supersede another. Three conditions, all measured,
+#: and all three added after the first version of this rule demoted half a document.
 #:
 #: A section of standing reminders shares five content words with almost everything else
 #: in the same file — they are all about the same matter. Counting shared words alone
-#: would let one grab-bag section mark most of its document as superseded, and leave an
-#: unrelated question with no evidence at all.
+#: therefore let one grab-bag section mark most of its document as superseded, and a
+#: question about excavation inspection forms came back with no evidence at all.
 #:
 #: So the overlap must also be a large *share* of the smaller passage, and a passage
 #: that would supersede more than a couple of rivals is treated as a grab-bag and
@@ -223,7 +225,7 @@ class FeatureReranker(Reranker):
 
         # Supersession is a relation, not a property. A passage is only superseded by
         # another passage that covers the same subject and says it is the one in force;
-        # read on its own, "النطاق النافذ = 3 بنود" tells you nothing about a
+        # read on its own, "المأمورية النافذة = 3 بنود" tells you nothing about a
         # passage on delay penalties, and must not rank one above the other.
         in_force = [c for c in candidates if c.standing == "current"]
         if in_force:
@@ -384,7 +386,7 @@ class CrossEncoderReranker(FeatureReranker):
 
     Additive, never a replacement. The model does not know which date a question asked
     for, which version of a clause is in force, or that a changelog is bookkeeping; the
-    feature terms do, and each covers a case the model cannot see. The weight is sized so
+    feature terms do, and each of them was measured into place. The weight is sized so
     the model decides among plausible passages without overturning a named date.
     """
 

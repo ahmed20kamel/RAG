@@ -63,7 +63,7 @@ GOLD_DATE = re.compile(r"^(\d{1,2})/(\d{1,2})/(\d{4})$")
 def date_spellings(token: str) -> list[str]:
     """The same calendar date written the other ways the answer may use.
 
-    "05/03/2026" and "5 مارس 2026" are one date. Only the spelling varies — no new
+    "10/02/2026" and "10 فبراير 2026" are one date. Only the spelling varies — no new
     value is accepted, so this cannot let an unsupported number through.
     """
     match = GOLD_DATE.match(token.strip())

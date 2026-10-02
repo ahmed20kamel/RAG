@@ -47,7 +47,7 @@ class Settings(BaseSettings):
 
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: str | None = None
-    qdrant_collection: str = "knowledge_base"
+    qdrant_collection: str = "alyafour_knowledge_base"
     qdrant_timeout: float = 60.0
 
     top_k: int = 8
@@ -144,6 +144,13 @@ class Settings(BaseSettings):
     #: Scanned pages are read only when this is on and the engine is actually
     #: installed. Off, a scan is refused as `ocr_required` rather than indexed empty.
     enable_ocr: bool = True
+    #: Tables of scanned PDFs read by a RAGFlow instance and checked against our own
+    #: reading (app/services/table_assist.py). Off unless a RAGFlow URL and key are set.
+    table_assist_enabled: bool = False
+    ragflow_url: str = ""
+    ragflow_api_key: str = ""
+    table_assist_dataset: str = "table_assist"
+    table_assist_timeout: float = 1800.0
     allowed_extensions: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: [".md", ".markdown", ".xlsx", ".xlsm", ".docx", ".pdf"]
     )
@@ -160,7 +167,7 @@ class Settings(BaseSettings):
     # A collection of its own. Taught claims and document passages are never
     # ranked against each other in one vector space — that would let similarity
     # decide what the approval workflow exists to decide.
-    qdrant_knowledge_collection: str = "knowledge_items"
+    qdrant_knowledge_collection: str = "alyafour_knowledge_items"
     # Below this a semantic hit is noise, not a match.
     knowledge_score_threshold: float = 0.45
     # How far approved knowledge may go when the documents have nothing.

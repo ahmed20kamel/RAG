@@ -154,7 +154,7 @@ def correcting_an_answer_changes_nothing_yet(client: httpx.Client) -> None:
         "the disputed value does not appear in a fresh answer",
     )
     check(
-        "B1N-2023-004410-P01" in repeat["answer"] or repeat["answer"] == original_text,
+        "B1N-2024-005221-P01" in repeat["answer"] or repeat["answer"] == original_text,
         "the documents still decide the answer",
     )
 

@@ -5,11 +5,11 @@ order and let the viewer lay it out right to left; others write it already laid 
 visual order, and the text a reader sees comes back with its words reversed. Both produce
 files that look perfect on screen and extract differently.
 
-The wrong repair is worse than none. An invoice extracted as «معلومات تقنية خدمات
-تقديم عقد» is the phrase «عقد تقديم خدمات تقنية معلومات» backwards — every word intact,
-the sentence inside out.
+This was measured on real files before it was written, because the wrong repair is worse
+than none. A supplier invoice extracted as «معلومات تقنية خدمات تقديم عقد» is the phrase
+«عقد تقديم خدمات تقنية معلومات» backwards — every word intact, the sentence inside out.
 
-Three repairs are possible, and only one survives both kinds of file:
+Three things were tried against those files:
 
 * the bidi algorithm, applied with `get_display` — it makes it worse, because the text is
   already visual and that function goes the other way;
@@ -61,13 +61,14 @@ def page_text(page) -> str:
 def page_lines(page) -> list[dict]:
     """Each line of a page: its text in reading order, and the size it was drawn at.
 
-    One function rather than two on purpose. Read through separate PyMuPDF calls — words
-    for the text, spans for the sizes — the two disagree on Arabic badly enough that
-    heading detection never matches a single line: the same line comes back as "تقرير
-    المشروع السنوي" from one and reversed from the other, headings are found and then
-    silently discarded, and every document collapses into one section.
+    One function rather than two on purpose. Text and font size used to be read through
+    separate PyMuPDF calls — words for the text, spans for the sizes — and the two
+    disagreed on Arabic badly enough that heading detection never matched a single line:
+    the same line came back as "تقرير المشروع السنوي" from one and reversed from the
+    other. Headings were found and then silently discarded, and every document collapsed
+    into one section.
 
-    So the text is taken from the word path, which is the correct one, and
+    So the text is taken from the word path, which is the one measured to be correct, and
     the size is looked up from the span path by matching vertical position. Neither is
     asked to do the other's job.
 

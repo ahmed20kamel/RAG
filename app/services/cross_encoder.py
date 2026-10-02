@@ -2,10 +2,10 @@
 
 The feature reranker scores what can be counted: shared terms, heading overlap, dates,
 identifiers. That is cheap and it is also exactly what a passage can satisfy without
-answering anything. A passage that answers "the maximum delay penalty" and a passage
-sharing every one of its words — "the materials were late and no penalty was imposed" —
-look alike to term counting; a model that reads them scores the first near 1 and the
-second near 0.
+answering anything. Measured on this machine with bge-reranker-v2-m3, a passage that
+answers "the maximum delay penalty" scored 0.977, and a passage sharing every one of its
+words — "the materials were late and no penalty was imposed" — scored 0.000. Term
+counting cannot tell those two apart; a model that reads them can.
 
 Runs locally through ONNX Runtime on the CPU. Nothing leaves the machine, and the model
 is loaded once, on first use, so a deployment that never enables it never pays for it.

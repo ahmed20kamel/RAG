@@ -174,9 +174,13 @@ def an_unresolved_disagreement_refuses() -> None:
 
 
 def a_disagreement_written_in_words_refuses() -> None:
-    """Two approved items disagreeing only in words behave exactly as the digit case
-    in section 5 does — refused, and the model never asked to choose. Value extraction
-    reads Arabic number words, so the disagreement is visible.
+    """Recorded earlier as a known limit: two approved items disagreeing only in words
+    reached the model as agreeing claims, and the answer asserted one of them.
+
+    Value extraction now reads Arabic number words, so this case must behave exactly as
+    the digit case in section 5 does — refused, and the model never asked to choose.
+    The before/after measurement the original note asked for is the golden-set run
+    recorded with the change.
     """
     print("\n-- 6. the same disagreement written in words is refused too --")
     left = item("مدة صلاحية تصريح الدخول تسعون يومًا", source_text="دليل الأمن")

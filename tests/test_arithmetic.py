@@ -61,7 +61,7 @@ def numbers_are_read_as_documents_write_them() -> None:
     print("\n-- 1. what counts as a number --")
     check(parse_number("150,000") == Decimal(150000), "thousands separators")
     check(parse_number("(633,487)") == Decimal(-633487), "brackets mean negative")
-    check(parse_number("1,450.00") == Decimal("1450.00"), "decimals")
+    check(parse_number("1,985.19") == Decimal("1985.19"), "decimals")
     check(parse_number("٣٥٠") == Decimal(350), "Arabic-Indic digits")
     check(parse_number("-") == Decimal(0), "a dash is a stated nil, which is zero")
 

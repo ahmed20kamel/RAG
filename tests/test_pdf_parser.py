@@ -54,14 +54,14 @@ def arabic_reading_order_is_recovered() -> None:
         "nor a line of English and numbers",
     )
     check(
-        arabic_pdf.is_rtl("قيمة العقد 1,450,000 درهم"),
+        arabic_pdf.is_rtl("قيمة العقد 2,680,000 درهم"),
         "and Arabic with numbers in it still is",
     )
 
 
 def presentation_forms_and_controls_are_repaired() -> None:
     print("\n-- 2. display glyphs, tatweel, bidi marks and soft hyphens --")
-    check(repair_arabic("ﺍﻝﺝﻩﺓ ﺍﻝﻁﺍﻝﺏﺓ") == "الجهة الطالبة", "presentation forms")
+    check(repair_arabic("ﻧﻴﺎﺑﺔ ﻣﺮﻭﺭ ﺃﺑﻮ ﻇﺒﻲ") == "نيابة مرور أبو ظبي", "presentation forms")
     check(repair_arabic("ﺗﻤــﺖ") == "تمت", "tatweel is removed")
     check(repair_arabic("‎GULF‏") == "GULF", "bidi marks are stripped")
     check(repair_arabic("CMN­2026­0817") == "CMN-2026-0817", "a soft hyphen inside a code becomes a hyphen")
@@ -107,7 +107,7 @@ def a_value_stays_on_the_page_it_was_printed_on() -> None:
 
     check("CMN-2026-0817" in second.content, "the reference number is in section two")
     check("CMN-2026-0817" not in third.content, "and not in section three")
-    check("50,000" in third.content, "the guarantee figure is in section three")
+    check("268,000" in third.content, "the guarantee figure is in section three")
 
 
 def a_document_with_no_headings_falls_back_to_pages() -> None:

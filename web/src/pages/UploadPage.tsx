@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Icon } from '@/components/ui/Icon'
 import { Badge, Button, Card, CardHeader, Field, IconButton, Input, Progress } from '@/components/ui/primitives'
 import { cx } from '@/utils/cx'
+import { FolderUpload } from '@/components/documents/FolderUpload'
 import { PipelineSteps, StatusPill } from '@/components/documents/StatusPill'
 import '@/components/documents/documents.css'
 import { documentKeys, isInFlight, useDocument } from '@/hooks/useDocuments'
@@ -244,6 +245,8 @@ export function UploadPage() {
         <Icon name="info" size={14} />
         <span>{t('upload.pipelineNote')}</span>
       </p>
+
+      <FolderUpload extensions={extensions} maxSize={MAX_SIZE} />
 
       <Card>
         <CardHeader

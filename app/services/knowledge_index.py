@@ -182,7 +182,7 @@ class KnowledgeVectorIndex:
             # A missing or unreachable collection means no semantic hits, not a failed
             # answer: the caller falls back to lexical selection. Logged at error level
             # because a silently degraded search looks exactly like an empty knowledge
-            # base.
+            # base — that confusion already cost one debugging session here.
             self.last_error = str(exc)
             logger.error("Knowledge search failed, falling back to lexical: %s", exc)
             return []

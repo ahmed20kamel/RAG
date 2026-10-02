@@ -40,7 +40,7 @@ def check(condition: bool, label: str, detail: str = "") -> None:
         FAILURES.append(label)
 
 
-ANSWER = """المختص: رقم القيد 134، الهاتف 0501234567، البريد expert@example.ae.
+ANSWER = """الخبير المنتدب: رقم القيد 134، الهاتف 0501234567، البريد expert@example.ae.
 الاجتماع عبر Zoom (Meeting ID: 812 3456 7890, Passcode: X9Q2LP).
 رقم العقد B1N-2023-004410-P01 بتاريخ 09/10/2024 بقيمة 1,450,000 درهم.
 الشكوى رقم 310101-1234567، والطلب 1-10000000001، والهوية 784-1990-1234567-1.
@@ -71,7 +71,7 @@ def facts_are_never_mistaken_for_contacts() -> None:
 def asking_releases_the_detail() -> None:
     print("\n-- 3. asked for, it is given --")
     cases = {
-        "ما رقم هاتف المختص؟": ("0501234567", "phone"),
+        "ما رقم هاتف الخبير؟": ("0501234567", "phone"),
         "ما البريد الإلكتروني للخبير؟": ("expert@example.ae", "email"),
         "ما بيانات الاجتماع وكلمة السر؟": ("X9Q2LP", "passcode"),
         "من هو مالك المشروع وما رقم هويته؟": ("784-1990-1234567-1", "emirates_id"),
@@ -80,7 +80,7 @@ def asking_releases_the_detail() -> None:
     for question, (value, kind) in cases.items():
         result = redact(ANSWER, question)
         check(value in result.text and kind not in result.masked, f"{kind} given for: {question}")
-    only_phone = redact(ANSWER, "ما رقم هاتف المختص؟")
+    only_phone = redact(ANSWER, "ما رقم هاتف الخبير؟")
     check("expert@example.ae" not in only_phone.text, "asking for one kind releases only that kind")
 
 
@@ -131,7 +131,7 @@ def the_language_ignores_file_names() -> None:
 
     arabic = "اكتب الإجابة بالعربية"
     for question, wanted in (
-        ("احكيلي عن ملف project_notes.md", "ar"),
+        ("احكيلي عن ملف PROJECT_MIGRATION_SUMMARY.md", "ar"),
         ("ما رقم العقد B1N-2023-004410-P01؟", "ar"),
         ("حسب FIDIC ما مهلة الإخطار؟", "ar"),
         ("Tell me about PROJECT_SUMMARY.md", "en"),

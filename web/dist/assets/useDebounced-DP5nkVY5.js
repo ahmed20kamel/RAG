@@ -1,0 +1,1 @@
+import{a as o}from"./react-C3_AFy_D.js";function c(t,e=300){const[r,s]=o.useState(t);return o.useEffect(()=>{const n=window.setTimeout(()=>s(t),e);return()=>window.clearTimeout(n)},[t,e]),r}export{c as u};

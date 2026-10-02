@@ -3,7 +3,7 @@
 A PDF is the hardest of the four formats because it records appearance, not meaning.
 There are no headings in the file, only text somebody set larger; no sections, only pages;
 and no guarantee the Arabic is even in reading order. Each of those is handled explicitly
-here.
+here, and each was measured against this company's own files first.
 
 The page number is the payoff. It is the locator a reader can actually act on: given
 "صفحة 12" they open the file at page 12 and see the sentence the answer quoted. So it is

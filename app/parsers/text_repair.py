@@ -8,7 +8,7 @@ the form it was written in, and `core.text` then normalises it like anything els
 Two repairs, both measured against real files rather than assumed.
 
 Presentation forms. Arabic is stored in some files as the contextual glyphs a renderer
-produced — "ﺍﻝﺝﻩﺓ ﺍﻝﻁﺍﻝﺏﺓ" instead of "الجهة الطالبة". Every downstream comparison is done on
+produced — "ﻧﻴﺎﺑﺔ ﻣﺮﻭﺭ" instead of "نيابة مرور". Every downstream comparison is done on
 ordinary Arabic letters, so text left in this form matches nothing: not the keyword
 index, not an entity pattern, not a question. NFKC maps the glyphs back. Found in a PDF
 first, then in the cells of a supplier's Excel file, which is why this is not in the PDF

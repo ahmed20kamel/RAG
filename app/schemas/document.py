@@ -18,6 +18,9 @@ class DocumentMetadataInput(BaseModel):
     version: str | None = Field(default=None, max_length=64)
     date: str | None = Field(default=None, max_length=64)
     language: str | None = Field(default=None, max_length=16)
+    #: From a folder upload: the project folder's name, and the file's folder inside it.
+    project: str | None = Field(default=None, max_length=256)
+    folder: str | None = Field(default=None, max_length=1024)
 
 
 class DocumentResponse(BaseModel):
@@ -27,6 +30,8 @@ class DocumentResponse(BaseModel):
     filename: str
     title: str
     category: str
+    project: str = ""
+    folder: str = ""
     source: str
     version: str
     doc_date: str

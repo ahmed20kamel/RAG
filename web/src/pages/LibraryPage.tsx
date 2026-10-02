@@ -6,7 +6,14 @@ import { cx } from '@/utils/cx'
 import { ConfirmDialog } from '@/components/ui/Modal'
 import { StatusPill } from '@/components/documents/StatusPill'
 import '@/components/documents/documents.css'
-import { useCategories, useDeleteDocument, useDocumentList, useLibraryStats, useReindexDocument } from '@/hooks/useDocuments'
+import {
+  useCategories,
+  useDeleteDocument,
+  useDocumentList,
+  useLibraryStats,
+  useProjects,
+  useReindexDocument,
+} from '@/hooks/useDocuments'
 import { useHealth } from '@/hooks/useSystem'
 import { useDebounced } from '@/hooks/useDebounced'
 import { useIsMobile } from '@/hooks/useMediaQuery'
@@ -130,33 +137,36 @@ export function LibraryPage() {
 
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
+  const [project, setProject] = useState('')
   const [status, setStatus] = useState<DocumentStatus | ''>('')
   const [offset, setOffset] = useState(0)
   const [pendingDelete, setPendingDelete] = useState<DocumentResponse | null>(null)
 
   const debouncedSearch = useDebounced(search, 300)
   const categories = useCategories()
+  const projects = useProjects()
   const reindex = useReindexDocument()
   const remove = useDeleteDocument()
 
   // A narrowed filter can leave the current page past the end of the new result set.
-  useEffect(() => setOffset(0), [debouncedSearch, category, status])
+  useEffect(() => setOffset(0), [debouncedSearch, category, project, status])
 
   const query = useMemo<DocumentQuery>(
     () => ({
       search: debouncedSearch || undefined,
       category: category || undefined,
+      project: project || undefined,
       status: status || undefined,
       limit: PAGE_SIZE,
       offset,
     }),
-    [debouncedSearch, category, status, offset],
+    [debouncedSearch, category, project, status, offset],
   )
 
   const list = useDocumentList(query)
   const documents = list.data?.items ?? []
   const total = list.data?.total ?? 0
-  const filtered = Boolean(debouncedSearch || category || status)
+  const filtered = Boolean(debouncedSearch || category || project || status)
   const entitiesHint = t('library.entitiesPerDocument')
 
   const open = (id: string) => navigate(`/documents/${id}`)
@@ -379,6 +389,20 @@ export function LibraryPage() {
             onChange={(event) => setSearch(event.target.value)}
           />
         </div>
+        {(projects.data?.length ?? 0) > 0 && (
+          <div className="library-filters__select">
+            <Field label={t('library.projects')} htmlFor="library-project">
+              <Select id="library-project" value={project} onChange={(event) => setProject(event.target.value)}>
+                <option value="">{t('library.allProjects')}</option>
+                {(projects.data ?? []).map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+        )}
         <div className="library-filters__select">
           <Field label={t('library.categories')} htmlFor="library-category">
             <Select

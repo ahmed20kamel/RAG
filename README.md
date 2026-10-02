@@ -1,231 +1,346 @@
-# Document Knowledge Assistant
+# RAG Knowledge Base — Markdown MVP
 
-A retrieval-augmented question answering system over an organisation's own documents.
-It answers from what the documents say, cites every passage it used, and refuses when
-the evidence does not support an answer.
+نظام قاعدة معرفة يعمل محليًا بالكامل: يرفع ملفات Markdown، يحللها، يقسمها حسب العناوين،
+ينشئ Embeddings، يخزنها في Qdrant، ثم يجيب عن الأسئلة عبر Ollama مع إظهار المصدر والقسم.
 
-Arabic and English, in the same corpus and the same query.
+المرحلة الحالية تدعم `.md` و `.markdown` فقط.
 
----
+## المتطلبات
 
-## What it does
-
-Ask a question in plain language. The system finds the passages that bear on it,
-assembles them, and produces an answer in which every claim carries the number of the
-passage it came from.
-
-Four kinds of evidence are reported separately and never merged:
-
-| | |
+| المكوّن | الإصدار المستخدم |
 |---|---|
-| **sources** | passages from the organisation's own documents |
-| **knowledge** | claims a person taught the system and a reviewer approved |
-| **web sources** | external pages, when the operator enables web fallback |
-| **computed values** | numbers the system worked out, never presented as quoted |
+| Python | 3.11+ |
+| Docker | لتشغيل Qdrant |
+| Ollama | نموذج محادثة + نموذج embeddings |
 
-It reads values written as words ("ثلاثون يومًا", "twenty-five thousand") as the
-numbers they state, and relative time ("الأسبوع الماضي", "آخر ثلاثين يومًا", "last
-month") as the dates it means — resolved against today's date, which the model is told.
-
-Colloquial questions ("كام بندفع؟", "إمتى اتمضى العقد؟") are read in their standard form
-for analysis and search, while the model answers the question as it was asked. Synonyms
-("الجدار" / "السور") widen the keyword search at half weight, and approved terminology —
-including interpretations the system offered and a person confirmed — joins them. A
-question of two to four parts is searched part by part and answered part by part, and a
-part the combined answer omits is answered on its own.
-
----
-
-## Design commitments
-
-These are properties the code enforces, not aspirations.
-
-**It refuses rather than guesses.** When retrieval finds nothing that supports an
-answer, the system says so. The refusal is produced structurally, not by asking a model
-to be careful.
-
-**Source priority is decided in code.** Where two documents disagree, the winner is
-chosen from declared metadata — status, authority rank, effective date, version — and
-where metadata settles nothing, both values are reported with their sources rather than
-one being picked silently.
-
-**Nothing becomes knowledge without a human.** A claim taught in conversation becomes a
-pending proposal. Only an explicit approval and activation by a person with the right
-capability makes it reachable by an answer.
-
-**A calculated number is labelled as calculated.** Arithmetic the system performs on
-retrieved tables is reported in its own block with its operands, and is never presented
-as a quotation.
-
-**Versions in force outrank versions they replaced.** Working documents correct
-themselves by appending; where a document states plainly which of its versions applies,
-that statement is put in front of the model rather than left to ranking.
-
----
-
-## Architecture
-
-```
-question
-   → deterministic query analysis (intent, time, scope — no model call)
-   → hybrid retrieval:  vector (Qdrant) ⊕ BM25 ⊕ entity lookup ⊕ dated sweep
-   → reciprocal rank fusion
-   → feature reranking (lexical, structural, temporal, currency)
-   → context assembly under a character budget
-   → deterministic fact extraction + arithmetic verification
-   → generation
-   → coverage validation, completion pass where incomplete
-   → answer trace
-```
-
-The retrieval arms are independent: a question naming an identifier is found by keyword
-search when vector similarity misses it, and a dated section with no matching words is
-found by the dated sweep when both miss it.
-
-### Components
-
-| | |
-|---|---|
-| API | FastAPI, session cookies (argon2id), capability-based permissions |
-| Vector store | Qdrant — one collection for documents, one for knowledge |
-| Embeddings / generation | Ollama — any model, configured per deployment |
-| Registry | SQLite (WAL) with Alembic migrations |
-| Client | React 18 + TypeScript + Vite, RTL and LTR |
-
-### Ingestion
-
-Markdown, PDF, DOCX and XLSX through one parser interface. Each format produces the same
-normalised document model, and each citation carries a locator in the format's own terms
-— a page for PDF, a sheet and row range for XLSX, a heading path for Markdown.
-
-PDF handling includes OCR for scanned pages and geometric recovery of borderless tables.
-Arabic text is repaired at parse time: presentation forms normalised, bidirectional
-controls and tatweel removed.
-
----
-
-## Running it
-
-### Requirements
-
-- Python 3.11+
-- Qdrant (`docker compose up -d qdrant`)
-- Ollama with a generation model and an embedding model
-
-### Setup
+## التشغيل
 
 ```bash
-python -m venv .venv && .venv/Scripts/activate      # Windows
-pip install -r requirements.txt
+# 1. Qdrant
+docker compose up -d
 
-cp .env.example .env                                 # then edit it
-python -m alembic upgrade head
-python -m app.cli bootstrap                          # creates the first admin
+# 2. نماذج Ollama
+ollama pull qwen3            # نموذج الإجابة
+ollama pull bge-m3           # نموذج الـEmbeddings (متعدد اللغات، 1024 بُعد)
+
+# 3. البيئة
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+copy .env.example .env
+
+# 4. التشغيل
 python run.py
 ```
 
-Build the client with `cd web && npm install && npm run build`. The API serves it from
-`web/dist` when present; without it the API runs unchanged.
+الواجهة: <http://localhost:8000> — وتوثيق API: <http://localhost:8000/docs>
 
-### Configuration
+## البنية
 
-Everything is in `.env`, documented inline. The values that matter most:
+**عند الرفع** (كل التحليل الثقيل يحدث هنا، مرة واحدة):
 
-| | |
-|---|---|
-| `OLLAMA_MODEL` | the generation model |
-| `OLLAMA_NUM_CTX` | context window — size it to the model's memory, not upward |
-| `QDRANT_URL` | the vector store |
-| `MAX_CONTEXT_CHARS` | how much evidence reaches the model |
-| `WEB_SEARCH_ENABLED` | off by default; see below |
-| `INTEGRATION_ENABLED` | off by default; see below |
-
----
-
-## Web fallback
-
-Disabled by default. When enabled, it runs only after the corpus has been asked and has
-come back with nothing usable — never in parallel, never preferred.
-
-What it returns is treated as untrusted input: directive phrasings are stripped, results
-are reported in their own list, and nothing from the web can enter the knowledge layer
-or acquire the standing of a document.
-
----
-
-## Machine-to-machine API
-
-`POST /api/v1/integrations/erp/query`, disabled by default.
-
-Authentication is an API key plus an HMAC-SHA256 signature over the request body, a
-timestamp and a single-use nonce. The secret never travels: only a key id is sent, and
-the secret is derived from a master key held in the environment, so a copy of the
-database cannot sign anything.
-
-The credential resolves to a read-only service role — it can ask questions and read
-document metadata, and cannot teach the system, upload, delete, or read the user list.
-
----
-
-## Tests
-
-The suites are standalone scripts. Those needing a running server read `RAG_BASE_URL`.
-
-```bash
-python tests/test_temporal_retrieval.py       # offline
-python tests/test_conflict_precision.py       # offline
-python tests/test_permissions.py              # needs a running server
+```
+Document → Parse → Structure Analysis → Entity Extraction → Section Summaries
+        → Smart Chunking → Knowledge Index (SQLite) → Embeddings → Qdrant → BM25 Index
 ```
 
-Nineteen of the suites run offline against fixtures and need neither a server nor a model.
-The parser suites read sample files that are generated rather than shipped — run the
-builders in `tests/corpus/` once before them.
+**عند السؤال** (بلا أي تحليل للمستند، وباستدعاء واحد للنموذج):
 
-An answer is measured on two axes that are kept apart: completeness, meaning how much of
-what the answer had to contain is in it, and correctness, meaning whether what it does
-contain rests on the right evidence. They fail in different ways, and one number for both
-hides whichever failed.
+```
+Question → Query Analysis (قواعد، بلا LLM)
+        → Vector Search ⊕ BM25 Keyword Search ⊕ Entity Lookup
+        → RRF Fusion → Rerank → Section Expansion → Rerank
+        → Tiered Context (أساسي/مساند/ذو صلة)
+        → Ollama → Answer + Citations → Validation
+```
 
-`python scripts/quality_gate.py` runs all of this in one command; see Operations.
+```
+app/
+├── config.py                 إعدادات من متغيرات البيئة فقط
+├── container.py              نقطة تركيب كل الخدمات
+├── core/
+│   ├── domain.py             كائنات المجال (Section, Entity, Chunk, Status)
+│   ├── retrieval.py          Candidate + طبقات الأدلة
+│   └── text.py               تطبيع وتجزئة عربية (أساس البحث بالكلمات)
+├── parsers/
+│   ├── base.py               DocumentParser (ABC) + ParserRegistry
+│   └── markdown_parser.py    MarkdownParser
+├── services/
+│   ├── structure.py          شجرة الأقسام والعلاقات ونوع المستند
+│   ├── entities.py           استخراج الكيانات (أنماط حتمية، بلا LLM)
+│   ├── summaries.py          ملخصات استخراجية للأقسام
+│   ├── chunking.py           تقسيم يحترم العناوين والجداول والأكواد
+│   ├── knowledge_store.py    قراءة/كتابة فهرس المعرفة
+│   ├── keyword_index.py      BM25 على نص المقاطع
+│   ├── embeddings.py         عميل Ollama للـEmbeddings
+│   ├── vector_store.py       Qdrant
+│   ├── ingestion.py          خط المعالجة + حالات التقدم
+│   ├── document_service.py   دورة حياة المستند
+│   ├── query_analysis.py     فهم السؤال (قواعد، بلا LLM)
+│   ├── retriever.py          استرجاع هجين + توسيع الأقسام
+│   ├── reranking.py          Reranker (واجهة) + FeatureReranker
+│   ├── context_builder.py    سياق مُطبَّق + استشهادات
+│   ├── answer_validation.py  فحص الاكتمال والتقييد
+│   └── rag_service.py        التنسيق العام
+├── models/                   سجل المستندات + فهرس المعرفة (SQLite)
+├── schemas/                  عقود الطلب والاستجابة
+├── api/routes/               documents, chat, health
+└── static/                   لوحة التحكم
+```
 
+### لماذا استرجاع هجين؟
+
+البحث الشعاعي وحده كان سبب الإجابات الناقصة: فهو يرتّب بالمعنى، فيضيّع المقطع الذي
+يحمل رقم عقد أو رقم رخصة، ويكتفي بقسم واحد عندما تكون الإجابة موزعة. النظام الآن
+يجمع ثلاثة مسارات مستقلة للعثور على المقطع:
+
+| المسار | يلتقط |
+|---|---|
+| Vector (bge-m3) | التشابه في المعنى |
+| BM25 | المطابقة الحرفية: `B1N-2024-005221-P01`، `CN-0000000`، الأسماء |
+| Entity Lookup | الأقسام التي تحتوي حقائق مستخرجة تطابق صياغة السؤال |
+
+تُدمج النتائج بـ Reciprocal Rank Fusion، ثم يُعاد ترتيبها، ثم يوسَّع البحث إلى:
+
+1. **بقية مقاطع نفس القسم** — لأن القسم الطويل (كجدول التسلسل الزمني) يُقسَّم إلى
+   عدة مقاطع، وبقية الإجابة غالبًا في المقطع المجاور من القسم نفسه.
+2. **الأقسام الأب/الأبناء/الأشقاء** — عندما يحتاج السؤال أكثر من قسم.
+3. **بحث موجَّه بالكلمات غير المغطاة** — إن بقيت مصطلحات من السؤال بلا تغطية.
+
+ثم تُحجز مقاعد (`RESERVED_SEMANTIC_SLOTS`) لأقوى التطابقات الدلالية. هذه الحماية
+ضرورية: السؤال العربي عن معلومة موجودة في مستند إنجليزي لا يطابق لفظيًا، فتتفوق
+عليه مقاطع عربية تشترك معه في كلمات عامة فقط، ويدفنه إعادة الترتيب رغم أنه أقرب
+تطابق دلالي في المجموعة كلها.
+
+### لماذا لا يوجد LLM في التحليل؟
+
+على هذا الجهاز يستغرق التوليد أكثر من 70 ثانية. لذلك تحليل السؤال واستخراج الكيانات
+وتلخيص الأقسام والتحقق من الإجابة كلها **حتمية بالقواعد**، فلا تضيف زمنًا يُذكر —
+ولا يمكنها اختلاق معلومة أصلًا. الاستدعاء الوحيد للنموذج هو توليد الإجابة النهائية.
+
+## دورة معالجة المستند
+
+```
+Uploaded → Parsing → Chunking → Embedding → Indexing → Completed
+                                                     ↘ Failed + رسالة الخطأ
+```
+
+المعالجة تتم في خيوط خلفية، فيعود الرفع فورًا بحالة `202 Accepted` وتتابع الواجهة التقدم.
+
+## استراتيجية التقسيم
+
+* العناوين هي الحدود الأساسية، وكل chunk يحتفظ بمساره الكامل (`مستند → قسم → قسم فرعي`).
+* الكتل الذرية لا تُقطع: Code Blocks، الجداول، القوائم.
+* الأقسام الكبيرة تُقسم مع تداخل (`CHUNK_OVERLAP`) للحفاظ على السياق.
+* الأقسام الصغيرة تُدمج مع شقيقها تحت نفس الأب فقط، حفاظًا على دقة الاستشهاد.
+* نص الـEmbedding يُسبق بعنوان المستند ومسار القسم ليبقى المقطع مفهومًا منفردًا.
+
+## API
+
+| Method | Endpoint | الوظيفة |
+|---|---|---|
+| POST | `/api/documents/upload` | رفع ملف Markdown وبدء المعالجة |
+| GET | `/api/documents` | قائمة المستندات (فلترة: status, category, search) |
+| GET | `/api/documents/{id}` | تفاصيل المستند مع الـchunks |
+| GET | `/api/documents/{id}/sections` | شجرة الأقسام مع الملخصات والمصطلحات |
+| GET | `/api/documents/{id}/entities` | الحقائق المستخرجة حرفيًا (فلترة بـ `kind`) |
+| GET | `/api/documents/categories` | التصنيفات المستخدمة |
+| POST | `/api/documents/{id}/reindex` | إعادة الفهرسة من الملف المخزن دون إعادة رفع |
+| DELETE | `/api/documents/{id}` | حذف المستند ومتجهاته |
+| GET | `/api/documents/stats` | إجماليات المكتبة (تُحسب في قاعدة البيانات لا في العميل) |
+| GET | `/api/documents/{id}/chunks` | صفحة من المقاطع (`limit`, `offset`) |
+| GET | `/api/documents/{id}/raw` | الملف كما رُفع — لفتح الاستشهاد عند مصدره |
+| POST | `/api/chat` | سؤال قاعدة المعرفة |
+| POST | `/api/chat/stream` | نفس الإجابة، مسبوقة بأحداث المراحل (NDJSON) |
+| GET | `/api/chat/stages` | أسماء المراحل التي يبلّغ عنها الخادم |
+| GET | `/api/health` | حالة Ollama و Qdrant |
+| GET | `/api/config` | الإعدادات النافذة |
+
+## طبقة المعرفة (Knowledge Layer)
+
+معرفة يعلّمها الموظفون، مفصولة تمامًا عن أدلة المستندات. لا شيء يصل إلى إجابة إلا
+بحالة `ACTIVE`، والوصول إليها يمرّ بدورة اعتماد كاملة.
+
+```
+اقتراح ──> PENDING ──> IN_REVIEW ──> APPROVED ──> ACTIVE ──> [يصل الإجابات]
+                │                                    │
+                └──> REJECTED                        └──> ARCHIVED ──> [يتوقف فورًا]
+```
+
+**الاستثناء الوحيد:** تفضيل شخصي بنطاق `USER` يُفعَّل فورًا لصاحبه وحده — لأنه يمسّ
+الصياغة لا المضمون، ولا يراه أحد غيره. الحقيقة الشخصية تبقى تحتاج اعتمادًا.
+
+| النوع | ما يفعله |
+|---|---|
+| `fact`, `correction`, `procedure`, `terminology` | يُعرض كدليل موسوم بأنه «معرفة معتمدة»، ويُقارن بالمستندات |
+| `rule`, `preference` | موجّه لطريقة الإجابة — لا يُعرض كدليل ولا يُقتبس كحقيقة |
+
+**الأولوية:** دليل مستندي ◀ معرفة معتمدة ◀ قاعدة معتمدة ◀ تفضيل. وعند اختلاف معرفة
+معتمدة مع مستند، تُعرض القيمتان بمصدريهما ولا يُرجَّح أحدهما.
+
+`ENABLE_KNOWLEDGE_LAYER=false` يعزل الذراع كليًّا: لا استعلام ولا تغيير في المُوجِّه.
+
+| Method | Endpoint | الوظيفة |
+|---|---|---|
+| GET | `/api/knowledge` | قائمة مُفلترة (type, scope, status, q, tag, mine) |
+| POST | `/api/knowledge` | تعليم عنصر جديد — يبدأ `PENDING` |
+| GET | `/api/knowledge/stats` | إحصاءات مجمّعة في قاعدة البيانات |
+| GET | `/api/knowledge/{id}` | العنصر مع نسخه وسجل قراراته واستخداماته |
+| PATCH | `/api/knowledge/{id}` | تعديل — يُنشئ نسخة ويسحب الاعتماد |
+| POST | `/api/knowledge/{id}/{submit,review,approve,activate,reject,archive,restore}` | انتقالات الحالة |
+
+### حسم التعارض وأولوية المصادر
+
+التعارض يُرصد بين ثلاثة أزواج: مستند/مستند، معرفة/معرفة، معرفة/مستند. «نفس الموضوع»
+يُحدَّد بكلمتين مشتركتين على الأقل، و«الاختلاف» بقيمة تنفرد بها كل جهة عن الأخرى.
+
+**الترتيب مفروض بمقارنة بيانات وصفية، لا بتعليمة للنموذج:**
+
+| الاختبار | يحسم حين |
+|---|---|
+| `status` | أحد المصدرين `draft` أو `superseded` |
+| `authority_rank` | رتبة معلنة مختلفة |
+| `document_over_knowledge` | مستند مقابل معرفة معتمدة — المستند يسود |
+| `knowledge_scope` | بين عنصري معرفة: الأوسع نطاقًا يسود |
+| `effective_date` | تاريخا سريان معلنان ومختلفان |
+| `version` | إصداران رقميان قابلان للمقارنة |
+
+**إن لم ينطبق أيٌّ منها: لا يُحسم.** تُعرض القيمتان بمصدريهما، ويُسجَّل الأساس
+`unresolved` في أثر الإجابة. لا تخمين، ولا ترجيح صامت من النموذج.
+
+فضاءان متجهيان منفصلان: `alyafour_knowledge_base` للمستندات و`alyafour_knowledge_items`
+للمعرفة. جملة يكتبها موظف لا تنافس بندًا تعاقديًّا على مقعد في ترتيب واحد.
+
+**حدّان معروفان:** الأرقام المكتوبة بالحروف لا تُقارَن (اختبار صريح يوثّق ذلك)، والمعرفة
+المعتمدة لا تُجيب وحدها — إن لم يُرجع مُسترجِع المستندات مرشّحًا، يُرفض السؤال قبل أن
+يعمل ذراع المعرفة.
+
+### لماذا هذه الإجابة
+
+`GET /api/chat/answers/{answer_id}/why` يُرجع أربع قوائم منفصلة: أدلة مستندية، معرفة
+معتمدة، سياسات مطبَّقة، وتعارضات مع أساس حسم كل واحد. **لا تُطلب سلسلة استدلال ولا
+تُحفظ** — تفسيرٌ مبنيّ على مصادر يمكن التحقق منه، وسردٌ للتفكير لا يمكن إلا تصديقه.
+
+## واجهة الويب
+
+تطبيق صفحة واحدة في [`web/`](web/) — React + TypeScript + Vite. يقدّمه FastAPI نفسه في
+الإنتاج، فلا يعبر المتصفح أصلًا مختلفًا ولا يحتاج CORS.
+
+```bash
+# تطوير: خادم Vite على 5173 يمرّر /api إلى 8000
+cd web && npm install && npm run dev
+
+# إنتاج: يُبنى إلى web/dist، ويلتقطه التطبيق تلقائيًا عند الإقلاع
+cd web && npm run build
+python run.py            # http://127.0.0.1:8000
+
+# أو الحزمة كاملة في حاوية واحدة
+docker compose --profile app up -d --build
+```
+
+التحقق: `npm run build` و`npm run lint` و`npm test` داخل `web/`.
+
+`POST /api/chat/stream` لا يبثّ نص الإجابة — المسار يتحقق من الإجابة قبل إرجاعها فلا يوجد
+نص جزئي يُرسل. ما يبثّه هو المرحلة التي بلغها الطلب فعلًا، مأخوذة من سجلّات التنفيذ نفسها.
+
+## Metadata
+
+**المستند:** `document_id, filename, title, category, source, version, date, language, uploaded_at, status, chunk_count`
+
+**الـChunk:** `document_id, filename, chunk_id, chunk_index, heading, section, page_or_section, content, source, version, category, language`
+
+ترتيب أولوية الـMetadata: القيم المُدخلة عند الرفع ← YAML Front Matter ← المستخرجة من المحتوى.
+
+```markdown
 ---
-
-## Operations
-
-**Monitoring.** Every request leaves one record — outcome, per-stage timings, evidence
-retrieved, conflicts — and never the question text. Administrators see it at
-`/admin/monitoring`: rates, response-time percentiles, a daily series, why requests were
-refused, the slowest answers, component reachability, backup age and free disk, with
-alerts against configurable thresholds. `/api/metrics` exposes the same counters in the
-Prometheus format for an existing monitoring stack.
-
-**Backups.** `scripts/backup.py` archives the database (through SQLite's online backup
-API, so it is consistent while the application writes), the uploaded originals, both
-vector collections (as Qdrant snapshots) and `.env`, with a manifest of digests and
-counts. `--drill` restores the snapshots into throw-away collections and counts the
-points; a backup that has never been restored is not yet a backup. `scripts/restore.py`
-moves the current data aside rather than deleting it.
-
-**Quality gate.** `scripts/quality_gate.py` runs the offline suites, checks that no
-frozen core file changed without being declared, measures retrieval against an accepted
-baseline, and optionally answers a question set several times through a running server.
-It exits non-zero on a regression.
-
-**Scheduling.** `scripts/install-maintenance-tasks.ps1` registers a nightly backup, a
-weekly restore drill and a nightly quality gate as Windows scheduled tasks.
-
-**Optional reranker.** A local cross-encoder (`RERANKER=cross`) can be added on top of
-the feature ranking. It is off by default: on a laptop CPU it cost 7–18 seconds a
-question for a small gain in ranking and none in evidence recall. See
-`scripts/download_reranker.py`.
-
+title: إجراءات المطالبات
+category: FIDIC
+source: FIDIC Red Book 1999
+version: 2.1
+date: 2026-01-15
 ---
+```
 
-## Operational notes
+## الإجابات المقيّدة
 
-- Answers take seconds to minutes depending on the model and how much of it fits in GPU
-  memory. A model that does not fit entirely is the usual cause of slow answers.
-- Retrieval quality follows document structure. Sections titled with their dates, values
-  written beside the words that name them, and corrections marked as corrections all
-  make a large difference.
-- Nothing is sent outside the deployment unless web fallback is enabled.
+النظام يجيب من المقاطع المسترجعة فقط. إذا لم تتضمنها قاعدة المعرفة يرد:
+
+```
+لا توجد معلومات كافية في قاعدة المعرفة للإجابة عن هذا السؤال.
+```
+
+كل إجابة مصحوبة بقائمة المصادر (اسم الملف، القسم، الإصدار، درجة التطابق، مقتطف).
+
+## الإعدادات
+
+كل القيم في `.env` — لا شيء مثبّت في الكود. أهمها:
+
+| المتغير | الافتراضي | الأثر |
+|---|---|---|
+| `OLLAMA_MODEL` | `qwen3:latest` | نموذج الإجابة |
+| `EMBEDDING_MODEL` | `bge-m3:latest` | نموذج الـEmbeddings |
+| `OLLAMA_KEEP_ALIVE` | `30m` | يمنع إعادة تحميل النموذج بين الأسئلة |
+| `QDRANT_COLLECTION` | `alyafour_knowledge_base` | اسم المجموعة |
+| `TOP_K` / `WIDE_TOP_K` | `8` / `14` | عدد المقاطع للسؤال المركّز / الموسّع |
+| `CANDIDATE_POOL` | `30` | عدد المرشحين من كل مسار قبل إعادة الترتيب |
+| `SCORE_THRESHOLD` | `0.35` | عتبة اعتبار السؤال مُغطّى دلاليًا |
+| `VECTOR_SCORE_FLOOR` | `0.25` | أدنى تشابه يدخل قائمة المرشحين |
+| `MAX_CONTEXT_CHARS` / `NARROW_CONTEXT_CHARS` | `12000` / `7000` | ميزانية السياق — **المحرك الأول للزمن** |
+| `CHUNK_SIZE` / `CHUNK_OVERLAP` | `1400` / `200` | حجم المقطع والتداخل |
+| `ENABLE_KEYWORD_SEARCH` / `ENABLE_ENTITY_RETRIEVAL` / `ENABLE_EXPANSION` | `true` | إيقاف أي مسار استرجاع لعزل أثره |
+| `ANSWER_RETRY_ON_INCOMPLETE` | `false` | إعادة توليد أوسع عند رصد نقص (تكلفة توليد ثانٍ) |
+
+### ملاحظة أداء مقيسة على هذا الجهاز
+
+كرت MX250 بذاكرة 2 GiB لا يستوعب نموذج 8B، فالتوليد يجري على المعالج:
+
+| القياس | القيمة |
+|---|---|
+| سرعة معالجة السياق | ~58 توكن/ثانية |
+| متوسط العربية | 2.24 حرف/توكن |
+| **كلفة كل 1000 حرف سياق** | **~7.7 ثانية** |
+
+لذلك السؤال المركّز يأخذ ميزانية 7000 حرف، والسؤال الموسّع فقط يدفع 12000.
+أي تعديل على `MAX_CONTEXT_CHARS` يترجم مباشرة إلى زمن.
+
+> تغيير `EMBEDDING_MODEL` إلى نموذج بأبعاد مختلفة يستلزم تغيير `QDRANT_COLLECTION`
+> أو حذف المجموعة الحالية، ثم إعادة فهرسة المستندات.
+
+## الاختبار
+
+```bash
+# بلا خدمات خارجية
+python tests/test_parsing_and_chunking.py
+python tests/test_intelligence.py
+
+# يتطلب تشغيل التطبيق و Qdrant و Ollama
+python tests/test_end_to_end.py
+
+# تقييم كامل (38 سؤالًا) ومقارنة قبل/بعد
+python tests/eval/run_eval.py --label after
+python tests/eval/run_eval.py --compare baseline after
+```
+
+مجموعة التقييم في [tests/eval/dataset.py](tests/eval/dataset.py) وتغطي: أسئلة واقعية،
+رقمية، تواريخ، كيانات، متعددة الأقسام، مقارنات، تسلسل زمني، عبر مستندات، وأسئلة
+خارج قاعدة المعرفة. المقاييس: اكتمال الإجابة، دقة الاستشهاد، نسبة الاختلاق، دقة
+الرفض، والزمن.
+
+## التوسع لأنواع ملفات أخرى (Phase 2)
+
+أنشئ صنفًا يرث `DocumentParser` وسجّله في `Container`:
+
+```python
+class PdfParser(DocumentParser):
+    name = "pdf"
+    supported_extensions = (".pdf",)
+
+    def parse(self, content: bytes, filename: str) -> ParsedDocument:
+        ...
+```
+
+```python
+self.parser_registry = ParserRegistry([MarkdownParser(...), PdfParser()])
+```
+
+ثم أضف الامتداد إلى `ALLOWED_EXTENSIONS`. لا يتغير أي شيء آخر في النظام.

@@ -15,6 +15,7 @@ import type {
 export interface DocumentQuery {
   status?: DocumentStatus
   category?: string
+  project?: string
   search?: string
   limit?: number
   offset?: number
@@ -26,6 +27,7 @@ export const documentsApi = {
       query: {
         status: query.status,
         category: query.category,
+        project: query.project,
         search: query.search,
         limit: query.limit ?? 25,
         offset: query.offset ?? 0,
@@ -35,6 +37,8 @@ export const documentsApi = {
   stats: () => api.get<LibraryStats>('/api/documents/stats'),
 
   categories: () => api.get<string[]>('/api/documents/categories'),
+
+  projects: () => api.get<string[]>('/api/documents/projects'),
 
   // Chunks are paged separately, so opening a document does not transfer all of its text.
   detail: (id: string) =>

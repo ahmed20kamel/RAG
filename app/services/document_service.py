@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 
-from sqlalchemy import event, func, or_, select
+from sqlalchemy import delete, event, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.config import Settings
@@ -96,7 +96,17 @@ class DocumentService:
                 f"(id={identical.id}). استخدم إعادة الفهرسة أو احذفه أولًا."
             )
 
-        existing = session.scalar(select(Document).where(Document.filename == filename))
+        # A file is the same document only in the same place: two projects, or two
+        # folders of one project, each keep their own "Letter 01.pdf".
+        project = (metadata.project or "").strip()
+        folder = (metadata.folder or "").strip().strip("/")
+        existing = session.scalar(
+            select(Document).where(
+                Document.filename == filename,
+                Document.project == project,
+                Document.folder == folder,
+            )
+        )
         document = existing or Document(id=str(uuid.uuid4()), filename=filename)
 
         stored_path = self.settings.upload_dir / f"{document.id}{extension}"
@@ -115,6 +125,8 @@ class DocumentService:
         if overrides.get("title"):
             document.title = overrides["title"]
         document.category = overrides.get("category") or document.category or self.settings.default_category
+        document.project = project
+        document.folder = folder
 
         session.add(document)
         session.flush()
@@ -143,8 +155,11 @@ class DocumentService:
         search: str | None = None,
         limit: int = 100,
         offset: int = 0,
+        project: str | None = None,
     ) -> tuple[int, list[Document]]:
         filters = []
+        if project is not None:
+            filters.append(Document.project == project)
         if status is not None:
             filters.append(Document.status == status)
         if category:
@@ -265,8 +280,16 @@ class DocumentService:
         rows = session.scalars(select(Document.category).distinct().order_by(Document.category))
         return [row for row in rows if row]
 
+    def projects(self, session: Session) -> list[str]:
+        rows = session.scalars(select(Document.project).distinct().order_by(Document.project))
+        return [row for row in rows if row]
+
     def delete(self, session: Session, document_id: str) -> None:
         document = self.get(session, document_id)
+        # First, before anything is removed: a job still processing this document must
+        # not write it back after the delete. The job checks before each write and takes
+        # back out what it wrote since.
+        self.pipeline.cancel(document_id)
         self.store.delete_document(document_id)
         self.knowledge.purge(session, document_id)
         event.listen(
@@ -281,6 +304,27 @@ class DocumentService:
                 logger.warning("Could not remove stored file %s: %s", stored, exc)
 
         session.delete(document)
+
+    def remove_orphans(self) -> dict[str, int]:
+        """Remove what deleted documents left behind: knowledge rows and vector points
+        whose document no longer exists. Run at startup, so leftovers from before the
+        delete guard — or from a crash mid-delete — do not outlive a restart."""
+        with session_scope() as session:
+            live = set(session.scalars(select(Document.id)))
+            removed = {"chunks": 0, "sections": 0, "entities": 0}
+            for key, model in (("chunks", ChunkRecord), ("sections", SectionRecord), ("entities", EntityRecord)):
+                result = session.execute(delete(model).where(model.document_id.not_in(select(Document.id))))
+                removed[key] = result.rowcount or 0
+
+        orphaned = self.store.document_ids() - live
+        for document_id in orphaned:
+            self.store.delete_document(document_id)
+        removed["documents_with_points"] = len(orphaned)
+
+        if any(removed.values()):
+            logger.info("Removed leftovers of deleted documents: %s", removed)
+            self.keyword_index.rebuild()
+        return removed
 
     def reindex(self, session: Session, document_id: str) -> Document:
         document = self.get(session, document_id)

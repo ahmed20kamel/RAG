@@ -462,11 +462,11 @@ def conflicts_are_surfaced() -> None:
         check(len(contribution.facts) == 1, "the taught fact is selected for a matching question")
 
         conflicts = ARM.find_conflicts(
-            contribution, [source("قيمة غرامة التأخير القصوى 50,000 درهم معتمدة", citation=2)]
+            contribution, [source("قيمة غرامة التأخير القصوى 268,000 درهم معتمدة", citation=2)]
         )
         check(len(conflicts) == 1, "a different number in a matching passage is a conflict")
         described = conflicts[0].describe()
-        check("50,000" in described or "50000" in described, "the document value is shown")
+        check("268,000" in described or "268000" in described, "the document value is shown")
         check("300,000" in described or "300000" in described, "the taught value is shown")
         check("[2]" in described, "the document citation is shown")
 

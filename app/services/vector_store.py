@@ -201,6 +201,29 @@ class QdrantVectorStore:
             raise VectorStoreError(f"فشل حساب متجهات المستند: {exc}") from exc
         return result.count
 
+    def document_ids(self) -> set[str]:
+        """Every document that has points in the collection, read from the payloads."""
+        if not self._client.collection_exists(self.collection):
+            return set()
+        found: set[str] = set()
+        offset = None
+        try:
+            while True:
+                points, offset = self._client.scroll(
+                    collection_name=self.collection,
+                    limit=1024,
+                    offset=offset,
+                    with_payload=["document_id"],
+                    with_vectors=False,
+                )
+                found.update(str((p.payload or {}).get("document_id", "")) for p in points)
+                if offset is None:
+                    break
+        except Exception as exc:  # noqa: BLE001
+            raise VectorStoreError(f"فشل قراءة معرّفات المستندات من Qdrant: {exc}") from exc
+        found.discard("")
+        return found
+
     def health(self) -> dict[str, Any]:
         try:
             exists = self._client.collection_exists(self.collection)

@@ -1,9 +1,9 @@
 """The live-data hint: what it must catch, and what it must not.
 
-A substring search is not enough: "الآن" is a substring of "الانصراف", so a question
-about the attendance policy would be flagged as a request for live operational data.
-The hint is advisory, so the cost is small — but a signal that fires on unrelated
-questions stops being read, and then it is not a signal.
+This exists because the first version was a substring search, and "الآن" is a substring
+of "الانصراف". A question about the attendance policy came back flagged as a request for
+live operational data. The hint is advisory, so the cost was small — but a signal that
+fires on unrelated questions stops being read, and then it is not a signal.
 
 The second half of this file is the half that matters. Anyone can make a word list match
 the words in it; the work is in not matching the words that merely contain them.

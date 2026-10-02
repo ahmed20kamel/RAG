@@ -141,7 +141,7 @@ def terms_are_parsed_conservatively() -> None:
 def an_interpretation_is_read_back() -> None:
     print("\n-- 7. the wording a clarification offered --")
     answer = ("اللفظ الوارد في سؤالك غير مستخدم في المستندات. إن كنت تقصد محضر المعاينة "
-              "الميدانية، فالإجابة: 03/05/2026 [7]")
+              "الميدانية، فالإجابة: 22/07/2026 [7]")
     check(interpretation_offered(answer) == "محضر المعاينه الميدانيه", "the interpretation is extracted")
     check(interpretation_offered("قيمة العقد 1,450,000 درهم [1].") is None,
           "an ordinary answer offers none")
@@ -162,7 +162,7 @@ def keyword_search_weighs_synonyms() -> None:
     print("\n-- 8. keyword search: a synonym reaches, the word asked still wins --")
     index = KeywordIndex()
     index.build_from([
-        ("sur", "d", KeywordIndex._document_text(_Row("السور", "طول السور المنهار 40 مترًا"))),
+        ("sur", "d", KeywordIndex._document_text(_Row("السور", "طول السور المنهار 35 مترًا"))),
         ("jidar", "d", KeywordIndex._document_text(_Row("الجدار", "طول الجدار الداخلي 12 مترًا"))),
         ("other", "d", KeywordIndex._document_text(_Row("الموقع", "مساحة الموقع 900 متر مربع"))),
     ])
@@ -190,7 +190,7 @@ def ranking_counts_synonyms() -> None:
 
     ranked = FeatureReranker().rerank(analysis, [
         candidate("unrelated", "المنهار من المعدات لا يُحتسب في المطالبة."),
-        candidate("synonym", "طول السور المنهار 40 مترًا."),
+        candidate("synonym", "طول السور المنهار 35 مترًا."),
     ], limit=2)
     check(ranked[0].chunk_id == "synonym", "the passage saying السور outranks mere word overlap",
           str([(c.chunk_id, round(c.rerank_score, 3)) for c in ranked]))

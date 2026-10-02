@@ -1,7 +1,7 @@
 """Monitoring: how the system is behaving, recorded for every request.
 
-Without monitoring, the first sign of a slower model, a failing embedder or a corpus
-change that makes the system refuse more often is a person complaining. Every request now
+Without this, the first sign of a slower model, a failing embedder or a corpus change
+that made the system refuse more often was a person complaining. Every request now
 leaves one row — outcome, per-stage timings, retrieval size, conflicts — and three
 views read those rows:
 

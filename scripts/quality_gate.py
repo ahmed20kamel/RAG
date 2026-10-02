@@ -1,7 +1,8 @@
 """The quality gate: one command that says whether the system still behaves.
 
-Checks that nothing runs protect nothing, and a single run of a generative system is
-not a measurement. This runs the checks in order, compares against an accepted baseline, and exits non-zero on a
+Before, the checks existed and nothing ran them. The golden set was run by hand, a
+single run was read as a measurement, and a regression could pass because nobody looked.
+This runs them in order, compares against an accepted baseline, and exits non-zero on a
 regression — so a scheduler, a deployment script or a person gets the same answer.
 
 Stages, cheapest first. A later stage runs only if the earlier ones pass.
@@ -46,7 +47,10 @@ RESULTS = EVAL / "results"
 BASELINE = EVAL / "baselines" / "gate.json"
 
 #: Suites that need a running server, a model, or files outside the repository.
-LIVE_MARKERS = ("harness_auth", "httpx.Client", "BASE_URL", "PDF_CORPUS_DIR")
+#: `RAG_BASE_URL`, not `BASE_URL`: the shorter one also matched `DATABASE_URL`, which
+#: every suite with its own temporary database sets, and kept six offline suites out
+#: of the gate.
+LIVE_MARKERS = ("harness_auth", "httpx.Client", "RAG_BASE_URL", "PDF_CORPUS_DIR")
 
 #: How far each retrieval metric may fall below the baseline before the gate fails.
 RETRIEVAL_TOLERANCE = {
