@@ -26,6 +26,7 @@ from app.schemas.chat import (
     QueryPlan,
     SourceFact,
 )
+from app.services import access
 from app.services.answer_validation import AnswerValidator
 from app.services.arithmetic import ArithmeticVerifier
 from app.services.in_force import extract_for_documents
@@ -344,8 +345,11 @@ class RagService:
         # A question that names a file is answered from that file. A name that fits
         # several files is answered with a question: two documents sharing a name were
         # otherwise searched together and answered as one matter.
+        # Only the documents this reader may see are searched or named: their own, or
+        # every document for whoever may read them all.
+        allowed = access.visible_ids(user)
         if not request.document_ids and self.document_scope is not None:
-            decision = self.document_scope.resolve(request.question)
+            decision = self.document_scope.resolve(request.question, among=allowed)
             if decision.ambiguous:
                 return self._ambiguous_document(decision, analysis, plan, timings)
             if decision.document is not None:
@@ -362,6 +366,7 @@ class RagService:
                     analysis = self.analyzer.analyze(overview)
                     plan.rewrites = [*plan.rewrites, "اسم ملف دون سؤال ← نظرة عامة على الملف"]
 
+        request = request.model_copy(update={"document_ids": access.restrict(request.document_ids, allowed)})
         retrieval_started = time.perf_counter()
         candidates = self.retriever.retrieve(
             analysis,

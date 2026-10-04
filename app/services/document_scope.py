@@ -161,8 +161,14 @@ class DocumentScope:
                     self._loaded_at = time.monotonic()
         return self._documents
 
-    def resolve(self, question: str) -> ScopeDecision:
+    def resolve(self, question: str, among: list[str] | None = None) -> ScopeDecision:
+        """`among` limits the names considered to the documents this reader may see: a
+        name that only someone else's file carries is not a match, and does not make a
+        name ambiguous either."""
         documents = self.documents()
+        if among is not None:
+            allowed = set(among)
+            documents = [doc for doc in documents if doc.document_id in allowed]
         if not documents:
             return ScopeDecision()
         words = _tokens(question)

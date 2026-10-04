@@ -506,29 +506,36 @@ def the_full_path_still_ends_at_a_reviewer() -> None:
             "تعلم القاعدة: عند تعارض مستندين اعرض القيمتين مع مصدر كل واحدة"
         )
         candidate = CANDIDATES.offer(db, author, signal)
+        # A contributor sees only their own documents, so their lesson is proposed for
+        # them alone; "usable" is therefore read from the author's side throughout.
+        check(candidate.proposed_scope == "user", "a contributor's lesson is proposed for them alone")
         check(
-            not any(signal.suggested_content in k.content for k in KNOWLEDGE.active_for(db, admin)),
+            not any(signal.suggested_content in k.content for k in KNOWLEDGE.active_for(db, author)),
             "step 1: a detected lesson is not usable",
         )
 
         _resolved, item = CANDIDATES.accept(db, author, candidate)
         db.flush()
         check(
-            not any(k.item_id == item.id for k in KNOWLEDGE.active_for(db, admin)),
+            not any(k.item_id == item.id for k in KNOWLEDGE.active_for(db, author)),
             "step 2: an accepted suggestion is not usable",
         )
 
         KNOWLEDGE.transition(db, admin, item, KnowledgeStatus.APPROVED)
         check(
-            not any(k.item_id == item.id for k in KNOWLEDGE.active_for(db, admin)),
+            not any(k.item_id == item.id for k in KNOWLEDGE.active_for(db, author)),
             "step 3: an approved proposal is not yet usable",
         )
 
         KNOWLEDGE.transition(db, admin, item, KnowledgeStatus.ACTIVE)
         db.flush()
         check(
-            any(k.item_id == item.id for k in KNOWLEDGE.active_for(db, admin)),
+            any(k.item_id == item.id for k in KNOWLEDGE.active_for(db, author)),
             "step 4: only activation makes it usable",
+        )
+        check(
+            not any(k.item_id == item.id for k in KNOWLEDGE.active_for(db, admin)),
+            "and it stays the author's: not in other people's answers",
         )
 
         trail = [r.decision for r in KNOWLEDGE.reviews(db, item.id)]

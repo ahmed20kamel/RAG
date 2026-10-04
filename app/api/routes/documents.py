@@ -8,7 +8,9 @@ import re
 from fastapi import APIRouter, File, Form, Query, UploadFile, status
 
 from app.api.deps import CurrentUserDep, DocumentServiceDep, SessionDep, require
-from app.core.permissions import Permission
+from app.core.permissions import Permission, has_permission
+from app.exceptions import AuthorizationError, DocumentNotFoundError
+from app.services import access
 from app.models.auth import User
 from app.models.document import Document
 from app.core.domain import DocumentStatus
@@ -40,6 +42,15 @@ def clean_filename(name: str) -> str:
     return re.sub(r"\s+", " ", cleaned).strip()
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
+
+
+def _visible(session, service, user, document_id: str) -> Document:
+    """The document if this reader may see it. Someone else's reads as not found:
+    a different answer would tell a stranger which identifiers exist."""
+    document = service.get(session, document_id)
+    if not access.can_see(user, document):
+        raise DocumentNotFoundError(f"المستند '{document_id}' غير موجود.")
+    return document
 
 
 @router.post("/upload", response_model=DocumentResponse, status_code=status.HTTP_202_ACCEPTED)
@@ -76,6 +87,7 @@ async def upload_document(
         filename=filename,
         content=content,
         metadata=metadata,
+        owner_id=uploader.id,
     )
     return DocumentResponse.model_validate(document)
 
@@ -84,7 +96,7 @@ async def upload_document(
 def list_documents(
     session: SessionDep,
     service: DocumentServiceDep,
-    _user: CurrentUserDep,
+    user: CurrentUserDep,
     document_status: DocumentStatus | None = Query(default=None, alias="status"),
     category: str | None = Query(default=None),
     search: str | None = Query(default=None),
@@ -100,6 +112,7 @@ def list_documents(
         limit=limit,
         offset=offset,
         project=project,
+        owner_id=access.owner_filter(user),
     )
     return DocumentListResponse(
         total=total, items=[DocumentResponse.model_validate(item) for item in items]
@@ -108,24 +121,24 @@ def list_documents(
 
 @router.get("/categories", response_model=list[str])
 def list_categories(
-    session: SessionDep, service: DocumentServiceDep, _user: CurrentUserDep
+    session: SessionDep, service: DocumentServiceDep, user: CurrentUserDep
 ) -> list[str]:
-    return service.categories(session)
+    return service.categories(session, access.owner_filter(user))
 
 
 @router.get("/projects", response_model=list[str])
 def list_projects(
-    session: SessionDep, service: DocumentServiceDep, _user: CurrentUserDep
+    session: SessionDep, service: DocumentServiceDep, user: CurrentUserDep
 ) -> list[str]:
-    return service.projects(session)
+    return service.projects(session, access.owner_filter(user))
 
 
 @router.get("/stats", response_model=LibraryStats)
 def library_stats(
-    session: SessionDep, service: DocumentServiceDep, _user: CurrentUserDep
+    session: SessionDep, service: DocumentServiceDep, user: CurrentUserDep
 ) -> LibraryStats:
     """Totals for the overview page, aggregated in the database rather than in the client."""
-    return service.library_stats(session)
+    return service.library_stats(session, access.owner_filter(user))
 
 
 @router.get("/{document_id}/chunks", response_model=DocumentChunkPage)
@@ -133,12 +146,12 @@ def get_document_chunks(
     document_id: str,
     session: SessionDep,
     service: DocumentServiceDep,
-    _user: CurrentUserDep,
+    user: CurrentUserDep,
     limit: int = Query(default=25, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> DocumentChunkPage:
     """One page of chunks, so opening a large document does not transfer all of it."""
-    service.get(session, document_id)
+    _visible(session, service, user, document_id)
     chunks = service.get_chunks(document_id)
     window = chunks[offset : offset + limit]
     return DocumentChunkPage(
@@ -163,10 +176,10 @@ def get_document_raw(
     document_id: str,
     session: SessionDep,
     service: DocumentServiceDep,
-    _user: CurrentUserDep,
+    user: CurrentUserDep,
 ) -> DocumentRaw:
     """The uploaded file itself, so a citation can be opened at its source."""
-    document = service.get(session, document_id)
+    document = _visible(session, service, user, document_id)
     content = service.read_stored_file(document)
     return DocumentRaw(
         id=document.id,
@@ -178,9 +191,10 @@ def get_document_raw(
 
 @router.get("/{document_id}/sections", response_model=list[SectionResponse])
 def get_document_sections(
-    document_id: str, service: DocumentServiceDep, _user: CurrentUserDep
+    document_id: str, session: SessionDep, service: DocumentServiceDep, user: CurrentUserDep
 ) -> list[SectionResponse]:
     """The section tree built at ingestion, with extractive summaries and key terms."""
+    _visible(session, service, user, document_id)
     return [
         SectionResponse(
             section_id=row.section_id,
@@ -203,12 +217,14 @@ def get_document_sections(
 @router.get("/{document_id}/entities", response_model=list[EntityResponse])
 def get_document_entities(
     document_id: str,
+    session: SessionDep,
     service: DocumentServiceDep,
-    _user: CurrentUserDep,
+    user: CurrentUserDep,
     kind: str | None = Query(default=None),
     limit: int = Query(default=200, ge=1, le=2000),
 ) -> list[EntityResponse]:
     """Facts extracted verbatim from the document — nothing here is model generated."""
+    _visible(session, service, user, document_id)
     return [
         EntityResponse(
             kind=row.kind,
@@ -226,10 +242,10 @@ def get_document(
     document_id: str,
     session: SessionDep,
     service: DocumentServiceDep,
-    _user: CurrentUserDep,
+    user: CurrentUserDep,
     include_chunks: bool = Query(default=True),
 ) -> DocumentDetailResponse:
-    document = service.get(session, document_id)
+    document = _visible(session, service, user, document_id)
     payload = DocumentDetailResponse.model_validate(document)
 
     if include_chunks and document.status == DocumentStatus.COMPLETED:
@@ -252,8 +268,9 @@ def reindex_document(
     document_id: str,
     session: SessionDep,
     service: DocumentServiceDep,
-    _user: User = require(Permission.DOCUMENT_UPLOAD),
+    user: User = require(Permission.DOCUMENT_UPLOAD),
 ) -> DocumentResponse:
+    _visible(session, service, user, document_id)
     document = service.reindex(session, document_id)
     return DocumentResponse.model_validate(document)
 
@@ -263,8 +280,13 @@ def delete_document(
     document_id: str,
     session: SessionDep,
     service: DocumentServiceDep,
-    user: User = require(Permission.DOCUMENT_DELETE),
+    user: User = require(Permission.DOCUMENT_UPLOAD),
 ) -> DeleteResponse:
+    # Anyone who may upload may delete what they uploaded; deleting someone else's
+    # document takes the delete permission.
+    owned = _visible(session, service, user, document_id)
+    if owned.owner_id != user.id and not has_permission(user.role, Permission.DOCUMENT_DELETE):
+        raise AuthorizationError("لا يمكنك حذف مستند لم ترفعه.")
     # Who deleted what is recorded before the row is gone. The access log names only
     # an address; a deletion is the one action here that cannot be undone from the
     # interface, and the first question after one is always who did it.

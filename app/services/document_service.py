@@ -62,6 +62,7 @@ class DocumentService:
         filename: str,
         content: bytes,
         metadata: DocumentMetadataInput,
+        owner_id: str | None = None,
     ) -> Document:
         filename = Path(filename).name
         extension = Path(filename).suffix.lower()
@@ -88,6 +89,9 @@ class DocumentService:
             select(Document).where(
                 Document.content_hash == content_hash,
                 Document.status.not_in(list(TERMINAL_FAILURES)),
+                # Among this owner's documents only. Checked across everyone, the refusal
+                # named another person's file — and kept them from adding their own copy.
+                Document.owner_id.is_(None) if owner_id is None else Document.owner_id == owner_id,
             )
         )
         if identical is not None:
@@ -105,6 +109,7 @@ class DocumentService:
                 Document.filename == filename,
                 Document.project == project,
                 Document.folder == folder,
+                Document.owner_id.is_(None) if owner_id is None else Document.owner_id == owner_id,
             )
         )
         document = existing or Document(id=str(uuid.uuid4()), filename=filename)
@@ -127,6 +132,7 @@ class DocumentService:
         document.category = overrides.get("category") or document.category or self.settings.default_category
         document.project = project
         document.folder = folder
+        document.owner_id = owner_id
 
         session.add(document)
         session.flush()
@@ -156,8 +162,11 @@ class DocumentService:
         limit: int = 100,
         offset: int = 0,
         project: str | None = None,
+        owner_id: str | None = None,
     ) -> tuple[int, list[Document]]:
         filters = []
+        if owner_id is not None:
+            filters.append(Document.owner_id == owner_id)
         if project is not None:
             filters.append(Document.project == project)
         if status is not None:
@@ -241,12 +250,13 @@ class DocumentService:
                 parts.extend(by_section.get(section.section_id, []))
             return "\n\n".join(p for p in parts if p.strip())
 
-    def library_stats(self, session: Session) -> LibraryStats:
-        """Totals over the whole library, counted in the database, not by listing rows."""
+    def library_stats(self, session: Session, owner_id: str | None = None) -> LibraryStats:
+        """Totals over the library — or one owner's part of it — counted in the database."""
+        mine = [Document.owner_id == owner_id] if owner_id is not None else []
         by_status = {
             str(status): int(count)
             for status, count in session.execute(
-                select(Document.status, func.count()).group_by(Document.status)
+                select(Document.status, func.count()).where(*mine).group_by(Document.status)
             )
         }
         totals = session.execute(
@@ -257,7 +267,7 @@ class DocumentService:
                 func.coalesce(func.sum(Document.size_bytes), 0),
                 func.max(Document.indexed_at),
                 func.max(Document.uploaded_at),
-            )
+            ).where(*mine)
         ).one()
         in_flight = {
             DocumentStatus.UPLOADED, DocumentStatus.PARSING, DocumentStatus.ANALYZING,
@@ -271,17 +281,23 @@ class DocumentService:
             chunks=int(totals[1] or 0),
             characters=int(totals[2] or 0),
             bytes=int(totals[3] or 0),
-            categories=len(self.categories(session)),
+            categories=len(self.categories(session, owner_id)),
             last_ingested_at=totals[4],
             last_uploaded_at=totals[5],
         )
 
-    def categories(self, session: Session) -> list[str]:
-        rows = session.scalars(select(Document.category).distinct().order_by(Document.category))
+    def categories(self, session: Session, owner_id: str | None = None) -> list[str]:
+        query = select(Document.category).distinct().order_by(Document.category)
+        if owner_id is not None:
+            query = query.where(Document.owner_id == owner_id)
+        rows = session.scalars(query)
         return [row for row in rows if row]
 
-    def projects(self, session: Session) -> list[str]:
-        rows = session.scalars(select(Document.project).distinct().order_by(Document.project))
+    def projects(self, session: Session, owner_id: str | None = None) -> list[str]:
+        query = select(Document.project).distinct().order_by(Document.project)
+        if owner_id is not None:
+            query = query.where(Document.owner_id == owner_id)
+        rows = session.scalars(query)
         return [row for row in rows if row]
 
     def delete(self, session: Session, document_id: str) -> None:

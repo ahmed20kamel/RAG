@@ -196,6 +196,13 @@ DECLARED = [
     # gained a project and a folder from folder uploads, and are identified by both
     # with the filename. Retrieval does not read either yet.
     "app/services/table_assist.py",
+    # Documents have owners. A person sees, opens and is answered from their own; an
+    # administrator or integration reads every document. Retrieval itself is unchanged:
+    # the answer pipeline fills the `document_ids` filter it already had, and a person
+    # with no documents gets a filter that matches nothing rather than an empty one.
+    "app/services/access.py",
+    # A lesson from someone who sees only their own documents is proposed for them alone.
+    "app/services/candidate_service.py",
     "app/schemas/document.py",
     "app/api/routes/documents.py",
     "app/api/routes/chat.py",

@@ -8,6 +8,7 @@ export type Permission =
   | 'document.read'
   | 'document.upload'
   | 'document.delete'
+  | 'document.read_all'
   | 'knowledge.read'
   | 'knowledge.propose'
   | 'knowledge.approve'

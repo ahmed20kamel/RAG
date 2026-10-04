@@ -26,6 +26,9 @@ class Permission(StrEnum):
     DOCUMENT_READ = "document.read"
     DOCUMENT_UPLOAD = "document.upload"
     DOCUMENT_DELETE = "document.delete"
+    #: Every document, not only one's own. Without it a person sees, opens and is
+    #: answered from the documents they uploaded and nothing else.
+    DOCUMENT_READ_ALL = "document.read_all"
 
     KNOWLEDGE_READ = "knowledge.read"
     KNOWLEDGE_PROPOSE = "knowledge.propose"
@@ -64,6 +67,7 @@ _KNOWLEDGE_MANAGER = _CONTRIBUTOR | {
 
 _ADMIN = _KNOWLEDGE_MANAGER | {
     Permission.DOCUMENT_DELETE,
+    Permission.DOCUMENT_READ_ALL,
     Permission.USER_MANAGE,
     Permission.SYSTEM_MONITOR,
 }
@@ -73,6 +77,8 @@ _ADMIN = _KNOWLEDGE_MANAGER | {
 _SERVICE = frozenset({
     Permission.CHAT_ASK,
     Permission.DOCUMENT_READ,
+    # Integrations answer for the company, not for one person's uploads.
+    Permission.DOCUMENT_READ_ALL,
     Permission.SYSTEM_READ,
 })
 

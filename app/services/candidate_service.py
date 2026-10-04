@@ -18,6 +18,7 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DbSession
 
+from app.services.access import sees_all
 from app.core.knowledge import KnowledgeScope, KnowledgeType
 from app.core.permissions import Permission, permissions_for
 from app.exceptions import AuthorizationError, DocumentNotFoundError, ValidationError
@@ -103,9 +104,12 @@ class CandidateService:
             corrects_item_id=corrects_item_id,
             # A suggestion starts at the narrowest reach that makes sense. Widening it
             # is a decision someone takes on purpose, not a default they inherit.
+            # A fact from someone who sees only their own documents is about their own
+            # documents: proposed for everyone, one approval would put it in other
+            # people's answers. It starts as theirs; a reviewer can still widen it.
             proposed_scope=(
                 KnowledgeScope.USER
-                if signal.type is KnowledgeType.PREFERENCE
+                if signal.type is KnowledgeType.PREFERENCE or not sees_all(user)
                 else KnowledgeScope.GLOBAL
             ),
         )
