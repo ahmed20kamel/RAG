@@ -189,6 +189,8 @@ export type ChatStreamEvent =
   | { type: 'stage'; stage: ChatStage }
   | { type: 'result'; response: ChatResponse }
   | { type: 'error'; detail: string }
+  /** Keep-alive while the model writes; carries nothing. */
+  | { type: 'ping' }
 
 export interface DocumentResponse {
   id: string

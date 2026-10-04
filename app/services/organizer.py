@@ -18,7 +18,10 @@ from __future__ import annotations
 
 import json
 import logging
+import queue
 import re
+import threading
+import time
 from dataclasses import dataclass, field
 
 from sqlalchemy import select
@@ -26,6 +29,7 @@ from sqlalchemy import select
 from app.core.text import normalize
 from app.models.database import session_scope
 from app.models.document import Document
+from app.services.activity import ACTIVITY
 
 logger = logging.getLogger(__name__)
 
@@ -141,10 +145,38 @@ def user_prompt(filename: str, excerpt: str, existing: list[str]) -> str:
     )
 
 
+#: A pause after the last answer before filing uses the model again: questions tend to
+#: come in runs, and the next one should not find the model busy.
+QUIET_SECONDS = 20
+
+
 class DocumentOrganizer:
     def __init__(self, llm=None, enabled: bool = True) -> None:
         self.llm = llm
         self.enabled = enabled
+        self._queue: queue.Queue = queue.Queue()
+        self._worker: threading.Thread | None = None
+        self._start_lock = threading.Lock()
+
+    def submit(self, document_id: str, text: str) -> None:
+        """File a document when the model is free — never ahead of someone's question."""
+        if not self.enabled:
+            return
+        with self._start_lock:
+            if self._worker is None or not self._worker.is_alive():
+                self._worker = threading.Thread(target=self._drain, name="organizer", daemon=True)
+                self._worker.start()
+        self._queue.put((document_id, text))
+
+    def _drain(self) -> None:
+        while True:
+            document_id, text = self._queue.get()
+            while not ACTIVITY.idle_for(QUIET_SECONDS):
+                time.sleep(2)
+            try:
+                self.organize(document_id, text)
+            except Exception:  # noqa: BLE001 - one document must not stop the queue
+                logger.exception("Could not organize %s", document_id)
 
     def place(self, filename: str, title: str, text: str, existing: list[str]) -> Placement:
         """Where a document belongs. Asks the model, falls back to the words."""

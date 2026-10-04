@@ -27,6 +27,7 @@ from app.schemas.chat import (
     SourceFact,
 )
 from app.services import access
+from app.services.activity import ACTIVITY
 from app.services.answer_validation import AnswerValidator
 from app.services.arithmetic import ArithmeticVerifier
 from app.services.in_force import extract_for_documents
@@ -313,6 +314,8 @@ class RagService:
         exception — is counted exactly once, and no route can forget.
         """
         started = time.perf_counter()
+        # Background jobs that need the model wait while anyone is waiting on an answer.
+        ACTIVITY.begin()
         try:
             response = self._remembered(request, user)
             if response is None:
@@ -325,6 +328,8 @@ class RagService:
                     channel, request.question, exc, self._elapsed_ms(started), user
                 )
             raise
+        finally:
+            ACTIVITY.end()
         if self.metrics is not None:
             self.metrics.record(
                 channel, request.question, response, self._elapsed_ms(started), user

@@ -77,6 +77,10 @@ class _StageCollector(logging.Handler):
         self.loop.call_soon_threadsafe(self.sink.put_nowait, event)
 
 
+#: Seconds of silence before a keep-alive line; well under any proxy's idle timeout.
+HEARTBEAT_SECONDS = 15
+
+
 @router.post("/chat/stream")
 async def chat_stream(
     request: ChatRequest,
@@ -120,7 +124,15 @@ async def chat_stream(
 
         worker = loop.run_in_executor(None, work)
         while True:
-            event = await events.get()
+            try:
+                event = await asyncio.wait_for(events.get(), timeout=HEARTBEAT_SECONDS)
+            except asyncio.TimeoutError:
+                # Nothing to report while the model writes, which can take minutes. A
+                # silent connection is dropped by proxies — the public tunnel cuts one
+                # after 100 seconds — and the reader is left waiting on an answer that
+                # can no longer arrive. A line every few seconds keeps it open.
+                yield json.dumps({"type": "ping"}) + "\n"
+                continue
             if event is None:
                 break
             # The planner's record is the last thing logged before the model is called,

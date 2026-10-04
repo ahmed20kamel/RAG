@@ -213,6 +213,9 @@ DECLARED = [
     # teaches that person a synonym, searched with their questions only; a repeated
     # question is answered from memory while its evidence is unchanged.
     "app/services/learning_loop.py",
+    # Questions first: filing waits for a quiet model; the answer stream keeps its
+    # connection open with a line every few seconds while the model writes.
+    "app/services/activity.py",
     "app/schemas/document.py",
     "app/api/routes/documents.py",
     "app/api/routes/chat.py",

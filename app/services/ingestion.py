@@ -298,12 +298,13 @@ class IngestionPipeline:
             }
 
         # Sorted into its folder once it is already answerable: the model reads its first
-        # page to name the type and project. Slow or failing, it delays nothing.
+        # page to name the type and project — queued, and only when nobody is waiting on
+        # an answer, so filing never slows a question.
         if self.organizer is not None:
             try:
-                self.organizer.organize(document_id, parsed.raw_text)
+                self.organizer.submit(document_id, parsed.raw_text)
             except Exception:  # noqa: BLE001 - sorting is a convenience, never a failure
-                logger.exception("Could not organize %s", filename)
+                logger.exception("Could not queue %s for organizing", filename)
 
     def _resolve_metadata(self, parsed: ParsedDocument, overrides: dict) -> dict[str, str]:
         """Upload-time overrides win, then front matter, then values derived from content."""

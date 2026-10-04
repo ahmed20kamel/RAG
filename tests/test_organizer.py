@@ -143,6 +143,25 @@ def main() -> int:
     check({"project": "فيلا الواحة", "category": "خطاب", "count": 1} in mine, "each folder carries its count", str(mine))
     check(any(f["project"] == "Someone else" for f in everyone), "the administrator's tree has every folder")
 
+    print("\n=== 7. filing waits while someone waits on an answer ===")
+    import time as _time
+
+    import app.services.organizer as organizer_module
+    from app.services.activity import ACTIVITY
+    organizer_module.QUIET_SECONDS = 0.2
+    queued = add("queued-letter.pdf")
+    ACTIVITY.begin()   # a question in progress
+    background = DocumentOrganizer(llm=FakeModel('{"type": "خطاب", "project": "", "date": "", "parties": []}'))
+    background.submit(queued, LETTER)
+    _time.sleep(1.0)
+    check(not row(queued).extra_metadata.get("organized"), "not filed while a question is being answered")
+    ACTIVITY.end()
+    for _ in range(50):
+        if row(queued).extra_metadata.get("organized"):
+            break
+        _time.sleep(0.1)
+    check(row(queued).category == "خطاب", "filed once the model is free", row(queued).category)
+
     print()
     if FAILURES:
         print(f"{len(FAILURES)} FAILURE(S)")

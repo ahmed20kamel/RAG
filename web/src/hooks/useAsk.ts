@@ -53,7 +53,8 @@ export function useAsk(): AskState {
         (event) => {
           if (event.type === 'stage') setStages((current) => [...current, event.stage])
           else if (event.type === 'result') answer = event.response
-          else failure = event.detail
+          else if (event.type === 'error') failure = event.detail
+          // 'ping' only keeps the connection open while the model writes.
         },
         abort.signal,
       )
