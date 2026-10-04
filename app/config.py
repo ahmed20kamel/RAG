@@ -151,6 +151,9 @@ class Settings(BaseSettings):
     ragflow_api_key: str = ""
     table_assist_dataset: str = "table_assist"
     table_assist_timeout: float = 1800.0
+    #: Each indexed document is sorted into a project and type folder by reading its
+    #: first page (app/services/organizer.py). What an upload already said is kept.
+    auto_organize_enabled: bool = True
     allowed_extensions: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: [".md", ".markdown", ".xlsx", ".xlsm", ".docx", ".pdf"]
     )

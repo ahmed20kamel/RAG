@@ -3,6 +3,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Button, Field, Input, Textarea } from '@/components/ui/primitives'
 import { useTranslation } from '@/hooks/useTranslation'
 import { useCorrectAnswer } from '@/hooks/useCandidates'
+import { can, useCurrentUser } from '@/hooks/useAuth'
 import { toast } from '@/state/toasts'
 import '@/pages/candidates.css'
 
@@ -27,6 +28,9 @@ export function CorrectAnswerDialog({
 }) {
   const { t } = useTranslation()
   const correct = useCorrectAnswer()
+  const { data: currentUser } = useCurrentUser()
+  // Someone who sees only their own documents corrects their own answers, at once.
+  const personal = !can(currentUser, 'document.read_all')
 
   const [correction, setCorrection] = useState('')
   const [sourceText, setSourceText] = useState('')
@@ -51,7 +55,8 @@ export function CorrectAnswerDialog({
       },
       {
         onSuccess: () => {
-          toast.success(t('candidates.correct.done'), t('candidates.correct.note'))
+          if (personal) toast.success(t('candidates.correct.learned'), t('candidates.correct.learnedNote'))
+          else toast.success(t('candidates.correct.done'), t('candidates.correct.note'))
           onClose()
         },
         onError: (error: Error) => toast.error(t('errors.title'), error.message),
@@ -83,7 +88,7 @@ export function CorrectAnswerDialog({
       }
     >
       <form id="correct-answer" className="lc-form" onSubmit={submit}>
-        <p className="lc-form__note">{t('candidates.correct.note')}</p>
+        <p className="lc-form__note">{t(personal ? 'candidates.correct.learnedNote' : 'candidates.correct.note')}</p>
 
         <Field
           label={t('candidates.correct.currentAnswer')}

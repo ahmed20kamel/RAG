@@ -183,14 +183,15 @@ def detection_writes_nothing_by_itself() -> None:
 
 
 def accepting_produces_a_proposal_not_knowledge() -> None:
-    print("\n-- 6. accepting a suggestion produces a PENDING proposal --")
+    print("\n-- 6. accepting a suggestion for everyone produces a PENDING proposal --")
     with SessionLocal() as db:
         author = make_user(db, Role.CONTRIBUTOR)
         signal = DETECTOR.detect(
             "تعلم أن رقم القيد المعتمد للخبير في هذا الملف هو مئة وأربعة وثلاثون"
         )
         candidate = CANDIDATES.offer(db, author, signal)
-        _resolved, item = CANDIDATES.accept(db, author, candidate)
+        # Shared knowledge is what review protects; personal knowledge is section 8.
+        _resolved, item = CANDIDATES.accept(db, author, candidate, scope=KnowledgeScope.GLOBAL)
         db.flush()
 
         check(candidate.state == CandidateState.ACCEPTED, "the candidate is marked accepted")
@@ -205,7 +206,7 @@ def accepting_produces_a_proposal_not_knowledge() -> None:
 
 
 def a_preference_activates_only_for_its_owner() -> None:
-    print("\n-- 7. a personal preference is the one thing that skips review --")
+    print("\n-- 7. a personal preference skips review --")
     with SessionLocal() as db:
         owner = make_user(db, Role.CONTRIBUTOR)
         colleague = make_user(db, Role.CONTRIBUTOR)
@@ -233,18 +234,29 @@ def a_preference_activates_only_for_its_owner() -> None:
         db.rollback()
 
 
-def a_fact_never_skips_review() -> None:
-    print("\n-- 8. a personal FACT still has to be approved --")
+def a_fact_is_reviewed_only_when_shared() -> None:
+    print("\n-- 8. a personal FACT is used at once by its owner; a shared one waits --")
     with SessionLocal() as db:
         owner = make_user(db, Role.CONTRIBUTOR)
+        colleague = make_user(db, Role.CONTRIBUTOR)
         signal = DETECTOR.detect("تعلم أن رقم الحساب المعتمد للمشروع هو 4471 فقط")
         candidate = CANDIDATES.offer(db, owner, signal)
+        check(candidate.proposed_scope == KnowledgeScope.USER,
+              "a contributor's fact is proposed for them alone")
         _resolved, item = CANDIDATES.accept(db, owner, candidate, scope=KnowledgeScope.USER)
         db.flush()
-        check(
-            item.status == KnowledgeStatus.PENDING,
-            "a claim is a claim whatever its reach, so it waits for review",
-        )
+        check(item.status == KnowledgeStatus.ACTIVE, "personal: active at once, no waiting")
+        check(any(k.item_id == item.id for k in KNOWLEDGE.active_for(db, owner)),
+              "the owner's next answers use it")
+        check(not any(k.item_id == item.id for k in KNOWLEDGE.active_for(db, colleague)),
+              "and nobody else's")
+
+        shared_signal = DETECTOR.detect("تعلم أن رقم الحساب البديل للمشروع هو 5582 فقط")
+        shared = CANDIDATES.offer(db, owner, shared_signal)
+        _resolved, shared_item = CANDIDATES.accept(db, owner, shared, scope=KnowledgeScope.GLOBAL)
+        db.flush()
+        check(shared_item.status == KnowledgeStatus.PENDING,
+              "the same kind of claim for everyone still waits for review")
         db.rollback()
 
 
@@ -343,7 +355,8 @@ def an_accepted_correction_is_still_only_a_proposal() -> None:
 
         signal = DETECTOR.detect("المعلومة السابقة غير صحيحة، الصحيح هو خمسة عشر يومًا")
         candidate = CANDIDATES.offer(db, author, signal, corrects_item_id=original.id)
-        _resolved, correction = CANDIDATES.accept(db, author, candidate)
+        # A correction to shared knowledge is itself shared, so it is reviewed.
+        _resolved, correction = CANDIDATES.accept(db, author, candidate, scope=KnowledgeScope.GLOBAL)
         db.flush()
 
         check(correction.status == KnowledgeStatus.PENDING, "the correction is PENDING")
@@ -514,7 +527,8 @@ def the_full_path_still_ends_at_a_reviewer() -> None:
             "step 1: a detected lesson is not usable",
         )
 
-        _resolved, item = CANDIDATES.accept(db, author, candidate)
+        # Widened to everyone when accepted, so the review path below applies.
+        _resolved, item = CANDIDATES.accept(db, author, candidate, scope=KnowledgeScope.GLOBAL)
         db.flush()
         check(
             not any(k.item_id == item.id for k in KNOWLEDGE.active_for(db, author)),
@@ -534,8 +548,8 @@ def the_full_path_still_ends_at_a_reviewer() -> None:
             "step 4: only activation makes it usable",
         )
         check(
-            not any(k.item_id == item.id for k in KNOWLEDGE.active_for(db, admin)),
-            "and it stays the author's: not in other people's answers",
+            any(k.item_id == item.id for k in KNOWLEDGE.active_for(db, admin)),
+            "and, being shared, it reaches other people's answers too",
         )
 
         trail = [r.decision for r in KNOWLEDGE.reviews(db, item.id)]
@@ -580,7 +594,7 @@ if __name__ == "__main__":
     detection_writes_nothing_by_itself()
     accepting_produces_a_proposal_not_knowledge()
     a_preference_activates_only_for_its_owner()
-    a_fact_never_skips_review()
+    a_fact_is_reviewed_only_when_shared()
     dismissing_leaves_a_record_and_nothing_else()
     a_rejected_candidate_reaches_no_answer()
     a_correction_does_not_overwrite_anything()

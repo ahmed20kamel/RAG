@@ -215,6 +215,13 @@ export interface DocumentResponse {
   indexed_at: string | null
 }
 
+/** One project / document-type folder of the library and how many documents it holds. */
+export interface FolderEntry {
+  project: string
+  category: string
+  count: number
+}
+
 export interface DocumentListResponse {
   total: number
   items: DocumentResponse[]

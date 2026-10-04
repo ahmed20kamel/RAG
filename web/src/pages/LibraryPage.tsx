@@ -6,10 +6,12 @@ import { cx } from '@/utils/cx'
 import { ConfirmDialog } from '@/components/ui/Modal'
 import { StatusPill } from '@/components/documents/StatusPill'
 import '@/components/documents/documents.css'
+import { FolderTree } from '@/components/documents/FolderTree'
 import {
   useCategories,
   useDeleteDocument,
   useDocumentList,
+  useFolders,
   useLibraryStats,
   useProjects,
   useReindexDocument,
@@ -145,6 +147,7 @@ export function LibraryPage() {
   const debouncedSearch = useDebounced(search, 300)
   const categories = useCategories()
   const projects = useProjects()
+  const folders = useFolders()
   const reindex = useReindexDocument()
   const remove = useDeleteDocument()
 
@@ -379,6 +382,16 @@ export function LibraryPage() {
       </header>
 
       <LibraryStatsRow />
+
+      <FolderTree
+        folders={folders.data ?? []}
+        project={project}
+        category={category}
+        onChoose={(nextProject, nextCategory) => {
+          setProject(nextProject)
+          setCategory(nextCategory)
+        }}
+      />
 
       <div className="library-filters">
         <div className="library-filters__search">

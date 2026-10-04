@@ -641,3 +641,102 @@
     gap: var(--space-2);
   }
 }
+
+/* Folder tree -------------------------------------------------------------- */
+.folder-tree {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.folder-tree__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-secondary);
+}
+
+.folder-tree__all {
+  margin-inline-start: auto;
+  border: none;
+  background: none;
+  color: var(--accent, var(--text-secondary));
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.folder-tree__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.folder-tree__project {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.folder-tree__name,
+.folder-tree__kind {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  color: var(--text-primary, inherit);
+  cursor: pointer;
+  unicode-bidi: plaintext;
+}
+
+.folder-tree__name {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.folder-tree__kind {
+  padding: 2px var(--space-3);
+  font-size: var(--text-xs);
+  background: transparent;
+}
+
+.folder-tree__name:hover,
+.folder-tree__kind:hover {
+  background: var(--surface-hover);
+}
+
+.folder-tree__name--active,
+.folder-tree__kind--active {
+  border-color: var(--accent, currentColor);
+  background: var(--surface-active);
+}
+
+.folder-tree__kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.folder-tree__count {
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 47.99rem) {
+  .folder-tree {
+    padding: var(--space-3) var(--space-4);
+  }
+}

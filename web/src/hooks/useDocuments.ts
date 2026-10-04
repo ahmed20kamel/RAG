@@ -8,6 +8,7 @@ export const documentKeys = {
   stats: ['documents', 'stats'] as const,
   categories: ['documents', 'categories'] as const,
   projects: ['documents', 'projects'] as const,
+  folders: ['documents', 'folders'] as const,
   detail: (id: string) => ['documents', 'detail', id] as const,
   chunks: (id: string, offset: number) => ['documents', 'chunks', id, offset] as const,
   sections: (id: string) => ['documents', 'sections', id] as const,
@@ -60,6 +61,15 @@ export function useProjects() {
     queryKey: documentKeys.projects,
     queryFn: documentsApi.projects,
     staleTime: 60_000,
+  })
+}
+
+export function useFolders() {
+  return useQuery({
+    queryKey: documentKeys.folders,
+    queryFn: documentsApi.folders,
+    // Folders appear as the organizer sorts new uploads, a little after they index.
+    refetchInterval: 15_000,
   })
 }
 

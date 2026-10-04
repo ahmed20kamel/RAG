@@ -220,15 +220,27 @@ def scope_isolation() -> None:
             "another team does not",
         )
 
-        # A personal *fact* is a claim, so it still needs review — the fast path is
-        # deliberately limited to preferences.
+        # A personal fact reaches only its owner's answers, so it needs nobody's
+        # approval; the same fact shared with a team still does.
         personal_fact = SERVICE.propose(
             db, alice,
             ProposedKnowledge(type=KnowledgeType.FACT, content="رقم المشروع 991", scope=KnowledgeScope.USER),
         )
         check(
-            personal_fact.status == KnowledgeStatus.PENDING,
-            "a personal FACT still requires approval",
+            personal_fact.status == KnowledgeStatus.ACTIVE,
+            "a personal FACT is active at once",
+        )
+        check(
+            not any(k.item_id == personal_fact.id for k in SERVICE.active_for(db, bob)),
+            "and reaches nobody else",
+        )
+        team_fact = SERVICE.propose(
+            db, alice,
+            ProposedKnowledge(type=KnowledgeType.FACT, content="رقم المشروع 992", scope=KnowledgeScope.TEAM),
+        )
+        check(
+            team_fact.status == KnowledgeStatus.PENDING,
+            "a shared FACT still requires approval",
         )
         db.rollback()
 

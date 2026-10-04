@@ -49,6 +49,14 @@ class DocumentResponse(BaseModel):
     indexed_at: datetime | None
 
 
+class FolderEntry(BaseModel):
+    """One project / document-type folder and how many documents it holds."""
+
+    project: str = ""
+    category: str = ""
+    count: int = 0
+
+
 class DocumentListResponse(BaseModel):
     total: int
     items: list[DocumentResponse]

@@ -26,6 +26,7 @@ from app.services.entities import EntityExtractor
 from app.services.keyword_index import KeywordIndex
 from app.services.knowledge_store import KnowledgeStore
 from app.services.structure import DocumentStructureAnalyzer
+from app.services.organizer import DocumentOrganizer
 from app.services.table_assist import RagflowTableAssist
 from app.services.summaries import SectionSummarizer
 from app.services.vector_store import QdrantVectorStore
@@ -51,9 +52,11 @@ class IngestionPipeline:
         knowledge: KnowledgeStore,
         keyword_index: KeywordIndex,
         table_assist: RagflowTableAssist | None = None,
+        organizer: DocumentOrganizer | None = None,
     ) -> None:
         self.registry = registry
         self.table_assist = table_assist
+        self.organizer = organizer
         self.chunker = chunker
         self.embedder = embedder
         self.store = store
@@ -293,6 +296,14 @@ class IngestionPipeline:
                 # citation into this document can be told the text was doubtful.
                 "extraction_warning": parsed.extraction_warning,
             }
+
+        # Sorted into its folder once it is already answerable: the model reads its first
+        # page to name the type and project. Slow or failing, it delays nothing.
+        if self.organizer is not None:
+            try:
+                self.organizer.organize(document_id, parsed.raw_text)
+            except Exception:  # noqa: BLE001 - sorting is a convenience, never a failure
+                logger.exception("Could not organize %s", filename)
 
     def _resolve_metadata(self, parsed: ParsedDocument, overrides: dict) -> dict[str, str]:
         """Upload-time overrides win, then front matter, then values derived from content."""

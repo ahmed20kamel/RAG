@@ -112,13 +112,15 @@ def can_transition(current: KnowledgeStatus, target: KnowledgeStatus) -> bool:
 
 
 def is_self_activating(item_type: KnowledgeType, scope: KnowledgeScope) -> bool:
-    """A personal preference needs nobody's approval; anything else does.
+    """Anything personal needs nobody's approval; anything shared does.
 
-    The exception is narrow by design. "Answer me briefly" affects one person's reading
-    and no one else's facts, so routing it through a reviewer would be ceremony. A
-    personal *fact* is still a claim that can be quoted, so it is not covered here.
+    A personal item reaches one person's answers and no one else's: their own preference,
+    or a correction to an answer from their own documents. Making them wait for a
+    reviewer only meant the system kept repeating a mistake its reader had already
+    pointed out. What another person can read — team, department, everyone — still
+    goes through review, because one wrong correction there would spread.
     """
-    return item_type is KnowledgeType.PREFERENCE and scope is KnowledgeScope.USER
+    return scope is KnowledgeScope.USER
 
 
 class ReviewDecision(StrEnum):

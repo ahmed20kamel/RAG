@@ -293,6 +293,19 @@ class DocumentService:
         rows = session.scalars(query)
         return [row for row in rows if row]
 
+    def folders(self, session: Session, owner_id: str | None = None) -> list[dict]:
+        """Every project and document type with how many documents each holds — the
+        folder tree the library shows, built from what the organizer and uploads set."""
+        query = select(Document.project, Document.category, func.count()).group_by(
+            Document.project, Document.category
+        ).order_by(Document.project, Document.category)
+        if owner_id is not None:
+            query = query.where(Document.owner_id == owner_id)
+        return [
+            {"project": project or "", "category": category or "", "count": int(count)}
+            for project, category, count in session.execute(query)
+        ]
+
     def projects(self, session: Session, owner_id: str | None = None) -> list[str]:
         query = select(Document.project).distinct().order_by(Document.project)
         if owner_id is not None:

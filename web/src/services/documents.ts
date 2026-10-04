@@ -7,6 +7,7 @@ import type {
   DocumentResponse,
   DocumentStatus,
   EntityResponse,
+  FolderEntry,
   LibraryStats,
   SectionResponse,
   UploadMetadata,
@@ -39,6 +40,8 @@ export const documentsApi = {
   categories: () => api.get<string[]>('/api/documents/categories'),
 
   projects: () => api.get<string[]>('/api/documents/projects'),
+
+  folders: () => api.get<FolderEntry[]>('/api/documents/folders'),
 
   // Chunks are paged separately, so opening a document does not transfer all of its text.
   detail: (id: string) =>

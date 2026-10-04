@@ -43,6 +43,7 @@ from app.services.metrics import MetricsRecorder, Thresholds
 from app.services.query_analysis import QueryAnalyzer
 from app.services.query_rewrite import SynonymLexicon, learned_terms_from_db
 from app.services.rag_service import RagService
+from app.services.organizer import DocumentOrganizer
 from app.services.table_assist import RagflowTableAssist
 from app.services.reranking import CrossEncoderReranker, FeatureReranker
 from app.services.retriever import HybridRetriever
@@ -189,6 +190,7 @@ class Container:
                 timeout=settings.table_assist_timeout,
                 enabled=settings.table_assist_enabled,
             ),
+            organizer=DocumentOrganizer(llm=self.llm, enabled=settings.auto_organize_enabled),
         )
         self.document_service = DocumentService(
             settings=settings,

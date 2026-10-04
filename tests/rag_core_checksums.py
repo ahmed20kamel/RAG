@@ -203,6 +203,12 @@ DECLARED = [
     "app/services/access.py",
     # A lesson from someone who sees only their own documents is proposed for them alone.
     "app/services/candidate_service.py",
+    # Learning and filing without waiting: a personal item (scope USER) activates at once;
+    # anything shared still goes through review. Indexed documents are sorted into
+    # project and type folders by reading their first page; an upload's own folders win.
+    "app/core/knowledge.py",
+    "app/services/organizer.py",
+    "app/api/routes/candidates.py",
     "app/schemas/document.py",
     "app/api/routes/documents.py",
     "app/api/routes/chat.py",

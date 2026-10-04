@@ -23,6 +23,7 @@ from app.schemas.candidates import (
     CorrectAnswerRequest,
 )
 from app.schemas.knowledge import KnowledgeItemResponse
+from app.services.access import sees_all
 from app.services.candidate_service import CandidateState
 from app.services.signal_detector import LearningSignal
 
@@ -151,9 +152,10 @@ def correct_answer(
 ) -> CandidateResponse:
     """Raises a correction against an answer.
 
-    Creates a candidate and nothing else. The answer stays as it was, any knowledge it
-    used stays active, and the correction has to be accepted and then approved before it
-    can affect anything — which is what keeps "this is wrong" from being self-executing.
+    The answer itself is never edited. For a reader who sees only their own documents the
+    correction becomes their own knowledge at once and shapes their next answers only.
+    For a reader who sees everything it is a candidate for everyone, accepted and then
+    approved before it can affect anything — so one wrong "this is wrong" cannot spread.
     """
     trace = session.scalar(select(AnswerTrace).where(AnswerTrace.id == body.answer_id))
     if trace is None:
@@ -178,7 +180,20 @@ def correct_answer(
         answer_id=body.answer_id,
         corrects_item_id=body.corrects_item_id,
     )
-    candidate.proposed_scope = KnowledgeScope.GLOBAL
+    if sees_all(user):
+        # Someone who reads every document corrects for everyone: proposed widely, and
+        # reviewed before it reaches anyone.
+        candidate.proposed_scope = KnowledgeScope.GLOBAL
+    else:
+        # Someone who sees only their own documents corrects their own answers. It is
+        # theirs at once — the next answer already uses it — and nobody else's.
+        candidate.proposed_scope = KnowledgeScope.USER
+        service.accept(
+            session, user, candidate,
+            scope=KnowledgeScope.USER,
+            source_text=body.source_text,
+            explanation=body.explanation,
+        )
     session.commit()
     logger.info("Correction raised by %s against answer %s", user.email, body.answer_id)
     return _present(session, service, candidate, user)

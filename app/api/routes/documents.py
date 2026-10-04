@@ -24,6 +24,7 @@ from app.schemas.document import (
     DocumentRaw,
     DocumentResponse,
     EntityResponse,
+    FolderEntry,
     LibraryStats,
     SectionResponse,
 )
@@ -124,6 +125,13 @@ def list_categories(
     session: SessionDep, service: DocumentServiceDep, user: CurrentUserDep
 ) -> list[str]:
     return service.categories(session, access.owner_filter(user))
+
+
+@router.get("/folders", response_model=list[FolderEntry])
+def list_folders(
+    session: SessionDep, service: DocumentServiceDep, user: CurrentUserDep
+) -> list[FolderEntry]:
+    return [FolderEntry(**row) for row in service.folders(session, access.owner_filter(user))]
 
 
 @router.get("/projects", response_model=list[str])
