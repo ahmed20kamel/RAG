@@ -33,6 +33,8 @@ if (-not (Test-Path $key)) {
 }
 # The update task runs as SYSTEM, and OpenSSH ignores a key that anyone else could
 # read: owned by SYSTEM, readable by SYSTEM and administrators only.
+# /reset first: ssh-keygen gives its creator an explicit entry that /grant:r keeps.
+icacls $key /reset | Out-Null
 icacls $key /inheritance:r | Out-Null
 icacls $key /setowner 'NT AUTHORITY\SYSTEM' | Out-Null
 icacls $key /grant:r 'NT AUTHORITY\SYSTEM:F' 'BUILTIN\Administrators:F' | Out-Null
