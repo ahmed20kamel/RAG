@@ -209,6 +209,10 @@ DECLARED = [
     "app/core/knowledge.py",
     "app/services/organizer.py",
     "app/api/routes/candidates.py",
+    # Learning from how people ask: a failed question rephrased into one that is answered
+    # teaches that person a synonym, searched with their questions only; a repeated
+    # question is answered from memory while its evidence is unchanged.
+    "app/services/learning_loop.py",
     "app/schemas/document.py",
     "app/api/routes/documents.py",
     "app/api/routes/chat.py",

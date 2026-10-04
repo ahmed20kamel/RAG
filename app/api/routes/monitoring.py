@@ -80,6 +80,17 @@ def operational_alerts(container, settings) -> list[dict]:
     return alerts
 
 
+@router.get("/admin/reports/latest")
+def latest_report(_user: User = require(Permission.SYSTEM_MONITOR)) -> dict:
+    """The report the nightly review wrote last (scripts/nightly_review.py)."""
+    latest = BASE_DIR / "data" / "reports" / "latest.md"
+    if not latest.exists():
+        return {"written_at": "", "markdown": ""}
+    from datetime import datetime
+    written = datetime.fromtimestamp(latest.stat().st_mtime).isoformat(timespec="minutes")
+    return {"written_at": written, "markdown": latest.read_text(encoding="utf-8")}
+
+
 @router.get("/admin/monitoring")
 def monitoring(
     container: ContainerDep,

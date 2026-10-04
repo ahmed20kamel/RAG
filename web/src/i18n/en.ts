@@ -733,6 +733,8 @@ export const en: Dictionary = {
     goHome: 'Back to chat',
   },
   monitor: {
+    nightly: 'Nightly report',
+    nightlyEmpty: 'No report yet. One is written every night at 2:30.',
     title: 'Monitoring',
     adminOnly: 'This page is for administrators.',
     loadFailed: 'Could not load monitoring data',

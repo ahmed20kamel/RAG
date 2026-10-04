@@ -75,6 +75,12 @@ export interface MonitoringResponse {
   traffic: TrafficSummary
 }
 
+export interface NightlyReport {
+  written_at: string
+  markdown: string
+}
+
 export const monitoringApi = {
   get: (days: number) => api.get<MonitoringResponse>(`/api/admin/monitoring?days=${days}`),
+  latestReport: () => api.get<NightlyReport>('/api/admin/reports/latest'),
 }

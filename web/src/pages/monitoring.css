@@ -176,3 +176,28 @@
     grid-template-columns: 1fr;
   }
 }
+
+.monitor-report {
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.monitor-report h1 {
+  font-size: var(--text-lg);
+  margin: 0 0 var(--space-2);
+}
+
+.monitor-report h2 {
+  font-size: var(--text-base);
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.monitor-report ul {
+  margin: 0;
+  padding-inline-start: var(--space-5);
+}
+
+.monitor-report__empty {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+}

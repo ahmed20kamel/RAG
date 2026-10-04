@@ -14,6 +14,7 @@ import { can, useCurrentUser } from '@/hooks/useAuth'
 import { useTranslation } from '@/hooks/useTranslation'
 import { monitoringApi, type MonitoringResponse, type Spread } from '@/services/monitoring'
 import { formatBytes, formatDateTime, formatDuration, formatNumber, formatPercent } from '@/utils/format'
+import { renderMarkdown } from '@/utils/markdown'
 import './monitoring.css'
 
 type Window = '1' | '7' | '30'
@@ -51,6 +52,23 @@ function SpreadRow({ label, spread }: { label: string; spread: Spread }) {
   )
 }
 
+/** What the nightly review wrote: what was asked, what was learned, what waits. */
+function NightlyReportCard() {
+  const { t } = useTranslation()
+  const report = useQuery({ queryKey: ['monitoring', 'report'], queryFn: monitoringApi.latestReport, staleTime: 60_000 })
+  const markdown = report.data?.markdown ?? ''
+  return (
+    <Card padded>
+      <CardHeader title={t('monitor.nightly')} />
+      {markdown ? (
+        <div className="monitor-report" dangerouslySetInnerHTML={{ __html: renderMarkdown(markdown).html }} />
+      ) : (
+        <p className="monitor-report__empty">{t('monitor.nightlyEmpty')}</p>
+      )}
+    </Card>
+  )
+}
+
 function Content({ data }: { data: MonitoringResponse }) {
   const { t, language } = useTranslation()
   const { components, traffic } = data
@@ -71,6 +89,8 @@ function Content({ data }: { data: MonitoringResponse }) {
           ))}
         </section>
       )}
+
+      <NightlyReportCard />
 
       <div className="monitor-grid">
         <Card padded>

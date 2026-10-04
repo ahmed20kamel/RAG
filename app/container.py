@@ -43,6 +43,7 @@ from app.services.metrics import MetricsRecorder, Thresholds
 from app.services.query_analysis import QueryAnalyzer
 from app.services.query_rewrite import SynonymLexicon, learned_terms_from_db
 from app.services.rag_service import RagService
+from app.services.learning_loop import AnswerMemory, RephraseLearner
 from app.services.organizer import DocumentOrganizer
 from app.services.table_assist import RagflowTableAssist
 from app.services.reranking import CrossEncoderReranker, FeatureReranker
@@ -238,6 +239,11 @@ class Container:
                 refusal_rate=settings.monitor_refusal_rate,
             ),
         )
+        self.rephrase_learner = RephraseLearner(
+            analyzer=self.query_analyzer,
+            keyword_index=self.keyword_index,
+            knowledge_service=self.knowledge_service,
+        )
         self.rag_service = RagService(
             analyzer=self.query_analyzer,
             retriever=self.retriever,
@@ -261,6 +267,7 @@ class Container:
             knowledge_index=self.knowledge_index,
             web_search=self.web_search,
             metrics=self.metrics,
+            answer_memory=AnswerMemory() if settings.answer_memory_enabled else None,
             document_scope=DocumentScope(),
             redact_sensitive=settings.redact_sensitive,
             conflicts=self.conflict_detector,

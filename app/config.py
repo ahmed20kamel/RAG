@@ -154,6 +154,9 @@ class Settings(BaseSettings):
     #: Each indexed document is sorted into a project and type folder by reading its
     #: first page (app/services/organizer.py). What an upload already said is kept.
     auto_organize_enabled: bool = True
+    #: Repeated questions answered from memory while the reader's documents and the
+    #: knowledge base are unchanged (app/services/learning_loop.py).
+    answer_memory_enabled: bool = True
     allowed_extensions: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: [".md", ".markdown", ".xlsx", ".xlsm", ".docx", ".pdf"]
     )

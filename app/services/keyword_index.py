@@ -172,6 +172,17 @@ class KeywordIndex:
                     seen.append(word)
         return seen
 
+    def knows(self, stem: str) -> bool:
+        """Whether any indexed passage carries this stem or one of its forms — اليومي
+        and اليومية reduce to stems one letter apart, and are the same word to a reader."""
+        self.ensure_loaded()
+        with self._lock:
+            if stem in self._inverted:
+                return True
+            if len(stem) < 3:
+                return False
+            return any(t.startswith(stem) or (len(t) >= 3 and stem.startswith(t)) for t in self._inverted)
+
     def stats(self) -> dict[str, int]:
         with self._lock:
             return {"chunks": len(self._postings), "terms": len(self._inverted)}

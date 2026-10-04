@@ -50,6 +50,22 @@ function Apply($changed) {
 }
 
 Set-Location $Root
+
+# The nightly jobs install themselves: whatever this machine is missing is registered
+# here, so a new job reaches it with the code, not with a visit.
+function Ensure-Task($name, $trigger, $arguments, $logName) {
+    if (Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue) { return }
+    $logFile = Join-Path $Root "data\logs\$logName"
+    $action = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument "/c `"`"$py`" $arguments >> `"$logFile`" 2>&1`"" -WorkingDirectory $Root
+    $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
+    $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 3)
+    Register-ScheduledTask -TaskName $name -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
+    Log "  scheduled task '$name' installed"
+}
+Ensure-Task 'RAG Backup' (New-ScheduledTaskTrigger -Daily -At 2:00am) 'scripts/backup.py' 'backup.log'
+Ensure-Task 'RAG Backup Drill' (New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 3:00am) 'scripts/backup.py --drill' 'backup.log'
+Ensure-Task 'RAG Nightly' (New-ScheduledTaskTrigger -Daily -At 2:30am) 'scripts/nightly_review.py' 'nightly.log'
+
 # Git writes to stderr; caught as text so the log says why a fetch failed.
 $fetch = & cmd /c "`"$git`" fetch --quiet origin $Branch 2>&1"
 if ($LASTEXITCODE -ne 0) { Log "fetch from GitHub failed: $(($fetch | Select-Object -Last 2) -join ' ')"; exit 1 }

@@ -333,12 +333,17 @@ class SynonymLexicon:
         self._groups()
         return len(self._learned)
 
-    def expand(self, text: str) -> Expansion:
-        """The other members of every group the text touches."""
+    def expand(self, text: str, extra: list[tuple[str, ...]] | None = None) -> Expansion:
+        """The other members of every group the text touches.
+
+        `extra` adds one reader's own terms — learned from their rephrasings or taught by
+        them — for this question only; they never enter anyone else's search.
+        """
         stems = set(tokenize(text))
         result = Expansion()
         alternatives: dict[str, set[str]] = {}
-        for group in self._groups():
+        personal = [tuple(normalize(w) for w in group) for group in (extra or [])]
+        for group in self._groups() + personal:
             member_stems = [tuple(tokenize(member)) for member in group]
             present = [
                 i for i, ms in enumerate(member_stems) if ms and all(s in stems for s in ms)
@@ -398,6 +403,35 @@ def interpretation_offered(answer: str) -> str | None:
         return None
     meant = normalize(match.group("meant").strip(" «»\"'"))
     return meant if 0 < len(meant.split()) <= MAX_TERM_WORDS else None
+
+
+def personal_terms(user_id: str | None) -> list[tuple[str, str]]:
+    """One reader's own active terminology, as (asked, meant) pairs."""
+    if not user_id:
+        return []
+    from sqlalchemy import select
+
+    from app.core.knowledge import KnowledgeScope, KnowledgeStatus, KnowledgeType
+    from app.models.database import session_scope
+    from app.models.knowledge_items import KnowledgeItem, KnowledgeVersion
+
+    pairs: list[tuple[str, str]] = []
+    with session_scope() as db:
+        rows = db.execute(
+            select(KnowledgeVersion.content)
+            .join(KnowledgeItem, KnowledgeItem.active_version_id == KnowledgeVersion.id)
+            .where(
+                KnowledgeItem.type == KnowledgeType.TERMINOLOGY,
+                KnowledgeItem.status == KnowledgeStatus.ACTIVE,
+                KnowledgeItem.scope == KnowledgeScope.USER,
+                KnowledgeItem.owner_user_id == user_id,
+            )
+        ).all()
+    for (content,) in rows:
+        pair = parse_term(content or "")
+        if pair is not None:
+            pairs.append(pair)
+    return pairs
 
 
 def term_statement(asked: str, meant: str) -> str:

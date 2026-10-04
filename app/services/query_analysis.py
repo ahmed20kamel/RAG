@@ -263,7 +263,7 @@ class QueryAnalyzer:
         # approved terminology — so a test constructing this directly touches no database.
         self.lexicon = lexicon or SynonymLexicon()
 
-    def analyze(self, question: str) -> QueryAnalysis:
+    def analyze(self, question: str, personal_terms: list[tuple[str, str]] | None = None) -> QueryAnalysis:
         canonical = canonicalize(question)
         normalized = canonical.text
         intent = self._detect_intent(normalized)
@@ -273,7 +273,7 @@ class QueryAnalyzer:
             if len(parts_display) > 1 else [question.strip()]
         )
         multi_part = len(parts) > 1 or len(QUESTION_WORD.findall(normalized)) > 1
-        expansion = self.lexicon.expand(normalized)
+        expansion = self.lexicon.expand(normalized, extra=personal_terms)
 
         keywords = [
             token for token in tokenize(normalized)

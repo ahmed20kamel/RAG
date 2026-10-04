@@ -49,7 +49,7 @@ from app.services.llm import OllamaLLMClient
 from app.services.query_analysis import (
     NORMALISED_INTERROGATIVES, PART_CONTINUATIONS, QueryAnalyzer, language_of, prose_letters,
 )
-from app.services.query_rewrite import canonicalize
+from app.services.query_rewrite import canonicalize, personal_terms
 from app.services.retriever import HybridRetriever
 from app.services.sensitive import redact
 from app.services.web_search import WebSearchService
@@ -263,8 +263,12 @@ class RagService:
         metrics=None,
         document_scope=None,
         redact_sensitive: bool = True,
+        answer_memory=None,
     ) -> None:
         self.redact_sensitive = redact_sensitive
+        #: Answers to repeated questions (learning_loop.AnswerMemory). None answers every
+        #: question afresh, as tests that build this directly expect.
+        self.answer_memory = answer_memory
         #: Resolves a file named in the question. None — as in tests that build this
         #: directly — searches every document, exactly as before.
         self.document_scope = document_scope
@@ -310,8 +314,11 @@ class RagService:
         """
         started = time.perf_counter()
         try:
-            response = self._answer(request, user)
-            self._withhold_sensitive(request.question, response)
+            response = self._remembered(request, user)
+            if response is None:
+                response = self._answer(request, user)
+                self._withhold_sensitive(request.question, response)
+                self._remember(request, user, response)
         except Exception as exc:
             if self.metrics is not None:
                 self.metrics.record_error(
@@ -324,11 +331,55 @@ class RagService:
             )
         return response
 
+    def _memory_stamp(self, user) -> str | None:
+        try:
+            return self.answer_memory.stamp(access.owner_filter(user))
+        except Exception:  # noqa: BLE001 - no stamp, no memory; the question is answered afresh
+            logger.exception("Could not read the answer-memory stamp")
+            return None
+
+    def _remembered(self, request: ChatRequest, user) -> ChatResponse | None:
+        """The answer this person already got to this question, while nothing it rests on
+        has changed. Restricted to plain questions: a request naming documents or a
+        category is answered afresh."""
+        # getattr: tests assemble this object piece by piece and may not set it.
+        if getattr(self, "answer_memory", None) is None or request.document_ids or request.category:
+            return None
+        stamp = self._memory_stamp(user)
+        if stamp is None:
+            return None
+        cached = self.answer_memory.get(user, request.question, stamp)
+        if cached is not None:
+            # The original answer's timings would report its minutes as this one's;
+            # dropping them lets the monitoring record the real, near-instant time.
+            cached.timings_ms = {"remembered": 1}
+            if cached.plan is not None:
+                cached.plan.rewrites = [*cached.plan.rewrites, "سؤال متكرر ← الإجابة من الذاكرة (المستندات لم تتغير)"]
+        return cached
+
+    def _remember(self, request: ChatRequest, user, response: ChatResponse) -> None:
+        if getattr(self, "answer_memory", None) is None or request.document_ids or request.category:
+            return
+        stamp = self._memory_stamp(user)
+        if stamp is not None:
+            self.answer_memory.put(user, request.question, stamp, response)
+
+    def _personal_terms(self, user) -> list[tuple[str, str]]:
+        """This reader's own synonyms — learned from their rephrasings or taught by them."""
+        if user is None or not getattr(self, "enable_knowledge_layer", False):
+            return []
+        try:
+            return personal_terms(user.id)
+        except Exception:  # noqa: BLE001 - searched without them rather than not at all
+            logger.exception("Could not load personal terminology")
+            return []
+
     def _answer(self, request: ChatRequest, user=None) -> ChatResponse:
         timings: dict[str, int] = {}
         started = time.perf_counter()
 
-        analysis = self.analyzer.analyze(request.question)
+        personal = self._personal_terms(user)
+        analysis = self.analyzer.analyze(request.question, personal)
         timings["analysis_ms"] = self._elapsed_ms(started)
         plan = QueryPlan(
             intent=str(analysis.intent),
@@ -363,7 +414,7 @@ class RagService:
                     # the file's English title — which produced a seventy-line English dump.
                     overview = f"احكيلي عن ملف {decision.document.filename}"
                     request = request.model_copy(update={"question": overview})
-                    analysis = self.analyzer.analyze(overview)
+                    analysis = self.analyzer.analyze(overview, personal)
                     plan.rewrites = [*plan.rewrites, "اسم ملف دون سؤال ← نظرة عامة على الملف"]
 
         request = request.model_copy(update={"document_ids": access.restrict(request.document_ids, allowed)})

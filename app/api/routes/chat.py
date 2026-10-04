@@ -81,6 +81,13 @@ def _offer_learning(session, container, user, request, response) -> None:
     Failing here must not fail the answer: a suggestion is a convenience, the reply is
     the thing they asked for.
     """
+    # A question that found nothing, rephrased by the same person into one that found
+    # something, teaches that person a synonym — at once, and for them alone.
+    try:
+        container.rephrase_learner.observe(user, request.question, response)
+    except Exception:  # noqa: BLE001 - learning must never fail the answer
+        logger.exception("Rephrase learning failed")
+
     settings = container.settings
     if not settings.enable_learning_signals:
         return
