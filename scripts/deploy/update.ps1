@@ -1,4 +1,4 @@
-# Brings an installed copy up to date with GitHub. Run every few minutes by the
+# Brings an installed copy up to date with GitHub. Run every minute by the
 # "RAG Update" task; does nothing when there is nothing new.
 #
 # Only code moves. The database, the case files, .env and the vector store are ignored by
@@ -50,8 +50,9 @@ function Apply($changed) {
 }
 
 Set-Location $Root
-& $git fetch --quiet origin $Branch
-if ($LASTEXITCODE -ne 0) { Log 'fetch from GitHub failed'; exit 1 }
+# Git writes to stderr; caught as text so the log says why a fetch failed.
+$fetch = & cmd /c "`"$git`" fetch --quiet origin $Branch 2>&1"
+if ($LASTEXITCODE -ne 0) { Log "fetch from GitHub failed: $(($fetch | Select-Object -Last 2) -join ' ')"; exit 1 }
 $current = (& $git rev-parse --verify --quiet HEAD)
 $published = (& $git rev-parse "origin/$Branch")
 if (-not $Force -and $current -eq $published) { exit 0 }

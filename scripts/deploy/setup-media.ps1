@@ -31,6 +31,11 @@ $key = Join-Path $deploy 'id_ed25519'
 if (-not (Test-Path $key)) {
     cmd /c "`"$keygen`" -t ed25519 -q -N `"`" -C media-pc-01-deploy -f `"$key`""
 }
+# The update task runs as SYSTEM, and OpenSSH ignores a key that anyone else could
+# read: owned by SYSTEM, readable by SYSTEM and administrators only.
+icacls $key /inheritance:r | Out-Null
+icacls $key /setowner 'NT AUTHORITY\SYSTEM' | Out-Null
+icacls $key /grant:r 'NT AUTHORITY\SYSTEM:F' 'BUILTIN\Administrators:F' | Out-Null
 Write-Host "`nAdd this key to GitHub: repository > Settings > Deploy keys > Add deploy key" -ForegroundColor Yellow
 Write-Host "(title: media-pc-01, leave 'Allow write access' OFF)`n" -ForegroundColor Yellow
 Get-Content "$key.pub"
@@ -51,10 +56,10 @@ if ($LASTEXITCODE -ne 0) { Pop-Location; throw 'Could not read the repository. W
 Pop-Location
 Write-Host "  now at $(& $git -C $Root rev-parse --short HEAD)"
 
-Step '4. Updating every 5 minutes'
+Step '4. Updating every minute'
 $update = Join-Path $Root 'scripts\deploy\update.ps1'
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$update`""
-$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 5)
+$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1)
 $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 20)
 Register-ScheduledTask -TaskName 'RAG Update' -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
@@ -64,5 +69,5 @@ Step '5. First update now'
 Get-Content (Join-Path $Root 'data\logs\update.log') -Tail 5
 
 Write-Host "`n== DONE" -ForegroundColor Green
-Write-Host '  Every push to GitHub reaches this machine within 5 minutes.'
+Write-Host '  Every push to GitHub reaches this machine within a minute.'
 Write-Host "  Log: $Root\data\logs\update.log"
