@@ -147,18 +147,14 @@ export function AssistantMessage({
           )}
           {answerId && mayTeach && (
             <>
-              <IconButton
-                icon="sparkles"
-                label={t('knowledge.teach')}
-                size="sm"
-                onClick={() => setDialog('teach')}
-              />
-              <IconButton
-                icon="alert"
-                label={t('candidates.correct.title')}
-                size="sm"
-                onClick={() => setDialog('correct')}
-              />
+              {/* Labelled, not icons: teaching is how the system learns, and an
+                  unlabelled sparkle was not found by the people it was for. */}
+              <Button variant="ghost" size="sm" icon="sparkles" onClick={() => setDialog('teach')}>
+                {t('chat.teachShort')}
+              </Button>
+              <Button variant="ghost" size="sm" icon="pen" onClick={() => setDialog('correct')}>
+                {t('chat.correctShort')}
+              </Button>
             </>
           )}
           {onFeedback && (

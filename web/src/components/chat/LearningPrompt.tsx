@@ -266,7 +266,8 @@ export function TeachFromChatDialog({ onClose }: { onClose: () => void }) {
       },
       {
         onSuccess: () => {
-          toast.success(t('candidates.teach.done'), t('candidates.teach.note'))
+          if (draft.scope === 'user') toast.success(t('candidates.teach.learned'), t('candidates.teach.learnedNote'))
+          else toast.success(t('candidates.teach.done'), t('candidates.teach.note'))
           onClose()
         },
         onError: (error: Error) => toast.error(t('errors.title'), error.message),

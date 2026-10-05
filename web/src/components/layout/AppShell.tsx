@@ -26,6 +26,7 @@ const NAV: NavItem[] = [
   { to: '/chat', icon: 'chat', label: 'nav.chat' },
   { to: '/library', icon: 'library', label: 'nav.library' },
   { to: '/knowledge', icon: 'layers', label: 'knowledge.title', permission: 'knowledge.read' },
+  { to: '/knowledge?mine=1', icon: 'sparkles', label: 'nav.learned', permission: 'knowledge.propose' },
   { to: '/candidates', icon: 'inbox', label: 'candidates.title', permission: 'knowledge.propose' },
   { to: '/upload', icon: 'upload', label: 'nav.upload' },
   { to: '/settings', icon: 'settings', label: 'nav.settings' },

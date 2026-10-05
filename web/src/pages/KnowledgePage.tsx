@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Icon, type IconName } from '@/components/ui/Icon'
 import {
   Badge,
@@ -235,7 +235,8 @@ function TeachDialog({ onClose }: { onClose: () => void }) {
       },
       {
         onSuccess: () => {
-          toast.success(t('knowledge.taught'))
+          if (scope === 'user') toast.success(t('candidates.teach.learned'), t('candidates.teach.learnedNote'))
+          else toast.success(t('knowledge.taught'))
           onClose()
         },
         onError: (error: Error) => toast.error(t('errors.title'), error.message),
@@ -773,7 +774,9 @@ export function KnowledgePage() {
   const [search, setSearch] = useState('')
   const [type, setType] = useState<KnowledgeType | ''>('')
   const [scope, setScope] = useState<KnowledgeScope | ''>('')
-  const [owner, setOwner] = useState<'everyone' | 'mine'>('everyone')
+  // "ما تعلّمه مني" in the menu opens this page on the reader's own items.
+  const [params] = useSearchParams()
+  const [owner, setOwner] = useState<'everyone' | 'mine'>(params.get('mine') ? 'mine' : 'everyone')
   const [offset, setOffset] = useState(0)
   const [teaching, setTeaching] = useState(false)
   const [opened, setOpened] = useState<{ id: string; editing: boolean } | null>(null)
