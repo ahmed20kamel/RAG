@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import threading
+from contextlib import contextmanager
 from typing import Literal
 
 from fastapi import APIRouter, File, Form, UploadFile
@@ -101,7 +103,8 @@ def chat(
 ) -> ChatResponse:
     logger.info("Chat question from %s (%s chars)", user.email, len(request.question))
     admit(user)
-    response = service.answer(request, user=user)
+    with waiting_on(user):
+        response = service.answer(request, user=user)
     _offer_learning(session, container, user, request, response)
     return response
 
@@ -112,15 +115,33 @@ def chat(
 MAX_QUESTIONS_PER_PERSON = 2
 
 
+#: Questions each person is waiting on with the page still open. Counted by connection,
+#: not by work in progress: a question whose page was closed is withdrawn from the
+#: model's queue, and must not hold its asker back while that happens.
+_OPEN: dict[str, int] = {}
+_OPEN_LOCK = threading.Lock()
+
+
+@contextmanager
+def waiting_on(user: User):
+    with _OPEN_LOCK:
+        _OPEN[user.id] = _OPEN.get(user.id, 0) + 1
+    try:
+        yield
+    finally:
+        with _OPEN_LOCK:
+            _OPEN[user.id] = max(0, _OPEN.get(user.id, 1) - 1)
+
+
 def admit(user: User) -> None:
-    """Refuse a question from someone who already has the maximum in progress.
+    """Refuse a question from someone already waiting on the maximum.
 
     The model answers one question at a time for everyone; a person sending questions
     faster than they can be answered makes everyone else wait behind them.
     """
-    from app.services.activity import ACTIVITY
-
-    if ACTIVITY.running_for(user.id) >= MAX_QUESTIONS_PER_PERSON:
+    with _OPEN_LOCK:
+        open_now = _OPEN.get(user.id, 0)
+    if open_now >= MAX_QUESTIONS_PER_PERSON:
         raise TooManyQuestionsError(
             "لديك سؤالان قيد الإجابة الآن. انتظر انتهاء أحدهما ثم اسأل — "
             "هكذا لا يطول الانتظار عليك ولا على غيرك.",

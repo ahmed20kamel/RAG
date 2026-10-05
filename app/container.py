@@ -40,6 +40,7 @@ from app.services.integration_limits import (
 from app.services.keyword_index import KeywordIndex
 from app.services.knowledge_store import KnowledgeStore
 from app.services.llm import OllamaLLMClient
+from app.services.model_gate import MODEL_GATE, GatedLLM
 from app.services.metrics import MetricsRecorder, Thresholds
 from app.services.query_analysis import QueryAnalyzer
 from app.services.query_rewrite import SynonymLexicon, learned_terms_from_db
@@ -161,7 +162,9 @@ class Container:
             api_key=settings.qdrant_api_key,
             timeout=settings.qdrant_timeout,
         )
-        self.llm = OllamaLLMClient(
+        # Behind the gate: requests queue here, in order, where a question whose reader
+        # left can still be withdrawn — not inside the model, where it cannot.
+        self.llm = GatedLLM(OllamaLLMClient(
             base_url=settings.ollama_base_url,
             model=settings.ollama_model,
             temperature=settings.ollama_temperature,
@@ -169,7 +172,7 @@ class Container:
             timeout=settings.ollama_timeout,
             think=settings.ollama_think,
             keep_alive=settings.ollama_keep_alive,
-        )
+        ), MODEL_GATE)
 
         # Document intelligence — all deterministic, all at ingestion time.
         self.structure = DocumentStructureAnalyzer()

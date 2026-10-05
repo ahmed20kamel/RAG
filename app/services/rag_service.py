@@ -29,6 +29,7 @@ from app.schemas.chat import (
 from app.services import access
 from app.services.activity import ACTIVITY
 from app.services.learning_loop import AnswerMemory
+from app.services.model_gate import AbandonedError
 from app.services.answer_validation import AnswerValidator
 from app.services.arithmetic import ArithmeticVerifier
 from app.services.in_force import extract_for_documents
@@ -362,6 +363,9 @@ class RagService:
                 response.plan.rewrites = [*response.plan.rewrites, *prepared.notes]
             if pictured and response.plan is not None:
                 response.plan.rewrites = [*response.plan.rewrites, "صورة مرفقة ← قُرئ نصها وأُضيف إلى السؤال"]
+        except AbandonedError:
+            # The reader left before the model's turn: nothing failed, nothing to count.
+            raise
         except Exception as exc:
             if self.metrics is not None:
                 self.metrics.record_error(

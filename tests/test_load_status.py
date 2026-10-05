@@ -72,6 +72,52 @@ def main() -> int:
     a.end(busy)
     check(a.idle_for(0), "nothing in progress: idle")
 
+    print("\n=== the model's queue ===")
+    import threading
+
+    from app.services.model_gate import AbandonedError, GatedLLM, ModelGate, watch
+
+    order: list[str] = []
+    release_first = threading.Event()
+
+    class Slow:
+        model = "m"
+
+        def chat(self, system_prompt, user_prompt):
+            order.append(user_prompt)
+            if user_prompt == "first":
+                release_first.wait(5)
+            return user_prompt
+
+    gate = ModelGate()
+    llm = GatedLLM(Slow(), gate)
+    check(llm.model == "m", "everything but chat reaches the client unchanged")
+    results: dict[str, object] = {}
+
+    def ask(label, flag=None):
+        watch(flag)
+        try:
+            results[label] = llm.chat("s", label)
+        except AbandonedError:
+            results[label] = "withdrawn"
+
+    gone = threading.Event()
+    threads = [threading.Thread(target=ask, args=("first",))]
+    threads[0].start()
+    time.sleep(0.2)
+    for label, flag in (("left", gone), ("second", None)):
+        threads.append(threading.Thread(target=ask, args=(label, flag)))
+        threads[-1].start()
+        time.sleep(0.1)
+    check(gate.waiting == 2, "two wait behind the one being answered", str(gate.waiting))
+    gone.set()
+    time.sleep(1.5)
+    check(results.get("left") == "withdrawn", "a reader who left is withdrawn before reaching the model")
+    release_first.set()
+    for t in threads:
+        t.join(5)
+    check(order == ["first", "second"], "the model sees the rest one at a time, in order", str(order))
+
     print()
     if FAILURES:
         print(f"{len(FAILURES)} FAILURE(S)")

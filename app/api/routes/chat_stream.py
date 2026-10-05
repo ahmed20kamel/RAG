@@ -19,12 +19,13 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
 from app.api.deps import ContainerDep, CurrentUserDep, RagServiceDep, require
-from app.api.routes.chat import _offer_learning, admit
+from app.api.routes.chat import _offer_learning, admit, waiting_on
 from app.core.permissions import Permission
 from app.models.auth import User
 from app.models.database import SessionLocal
 from app.schemas.chat import ChatRequest
 from app.services.activity import ACTIVITY
+from app.services.model_gate import AbandonedError, watch
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +96,10 @@ async def chat_stream(
     events: asyncio.Queue = asyncio.Queue()
     root = logging.getLogger("app.services")
 
+    # Set when the reader goes — page closed, "stop" pressed, connection lost — so the
+    # question leaves the model's queue instead of being answered for nobody.
+    gone = threading.Event()
+
     async def run() -> AsyncIterator[str]:
         collector: _StageCollector | None = None
 
@@ -102,6 +107,7 @@ async def chat_stream(
             nonlocal collector
             collector = _StageCollector(threading.get_ident(), events, loop)
             root.addHandler(collector)
+            watch(gone)
             try:
                 response = service.answer(request, user=user, channel="stream")
                 # The same learning offer the plain route makes. The interface asks through
@@ -109,6 +115,8 @@ async def chat_stream(
                 # interpretation worth keeping — was never offered to the person at all.
                 with SessionLocal() as session:
                     _offer_learning(session, container, user, request, response)
+            except AbandonedError:
+                logger.info("Question withdrawn: %s left before the model's turn", user.email)
             except Exception as exc:  # surfaced to the client, then re-raised into the log
                 logger.exception("Streaming chat failed")
                 loop.call_soon_threadsafe(
@@ -121,6 +129,7 @@ async def chat_stream(
                     {"type": "result", "response": response.model_dump(mode="json")},
                 )
             finally:
+                watch(None)
                 root.removeHandler(collector)
                 loop.call_soon_threadsafe(events.put_nowait, None)
 
@@ -135,33 +144,40 @@ async def chat_stream(
             }) + "\n"
 
         ahead = len(ahead_of)
-        yield load(ahead)
-        worker = loop.run_in_executor(None, work)
-        while True:
+        with waiting_on(user):
             try:
-                event = await asyncio.wait_for(events.get(), timeout=HEARTBEAT_SECONDS)
-            except asyncio.TimeoutError:
-                # Nothing to report while the model writes, which can take minutes. A
-                # silent connection is dropped by proxies — the public tunnel cuts one
-                # after 100 seconds — and the reader is left waiting on an answer that
-                # can no longer arrive. A line every few seconds keeps it open.
-                now_ahead = ACTIVITY.still_running(ahead_of)
-                if now_ahead != ahead:
-                    ahead = now_ahead
-                    yield load(ahead)
-                else:
-                    yield json.dumps({"type": "ping"}) + "\n"
-                continue
-            if event is None:
-                break
-            # The planner's record is the last thing logged before the model is called,
-            # so once it lands the request is provably in generation.
-            if event.get("stage") == "planning" and collector is not None:
-                yield json.dumps(event, ensure_ascii=False) + "\n"
-                collector.close_stage("generating")
-                continue
-            yield json.dumps(event, ensure_ascii=False) + "\n"
-        await worker
+                yield load(ahead)
+                worker = loop.run_in_executor(None, work)
+                while True:
+                    try:
+                        event = await asyncio.wait_for(events.get(), timeout=HEARTBEAT_SECONDS)
+                    except asyncio.TimeoutError:
+                        # Nothing to report while the model writes, which can take minutes. A
+                        # silent connection is dropped by proxies — the public tunnel cuts one
+                        # after 100 seconds — and the reader is left waiting on an answer that
+                        # can no longer arrive. A line every few seconds keeps it open.
+                        now_ahead = ACTIVITY.still_running(ahead_of)
+                        if now_ahead != ahead:
+                            ahead = now_ahead
+                            yield load(ahead)
+                        else:
+                            yield json.dumps({"type": "ping"}) + "\n"
+                        continue
+                    if event is None:
+                        break
+                    # The planner's record is the last thing logged before the model is
+                    # called, so once it lands the request is provably in generation.
+                    if event.get("stage") == "planning" and collector is not None:
+                        yield json.dumps(event, ensure_ascii=False) + "\n"
+                        collector.close_stage("generating")
+                        continue
+                    yield json.dumps(event, ensure_ascii=False) + "\n"
+                await worker
+            finally:
+                # Ended, or the reader left mid-way (the generator is closed): either way
+                # nobody is waiting on this question now, and if it has not reached the
+                # model yet it leaves the queue.
+                gone.set()
 
     return StreamingResponse(
         run(),

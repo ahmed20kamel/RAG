@@ -117,29 +117,28 @@ def main() -> int:
           "a specific question is searched, however many files match")
 
     print("\n=== 6. one person cannot fill the queue ===")
-    from app.api.routes.chat import MAX_QUESTIONS_PER_PERSON, admit
+    from contextlib import ExitStack
+
+    from app.api.routes.chat import MAX_QUESTIONS_PER_PERSON, admit, waiting_on
     from app.exceptions import TooManyQuestionsError
-    from app.services.activity import ACTIVITY
+
+    def refused(who) -> bool:
+        try:
+            admit(who)
+            return False
+        except TooManyQuestionsError as exc:
+            return exc.status_code == 429
 
     person = SimpleNamespace(id="busy-reader")
-    tickets = [ACTIVITY.begin(person.id) for _ in range(MAX_QUESTIONS_PER_PERSON)]
-    try:
-        admit(person)
-        check(False, "a third question while two are in progress is refused")
-    except TooManyQuestionsError as exc:
-        check(exc.status_code == 429, "a third question while two are in progress is refused (429)")
-    try:
-        admit(SimpleNamespace(id="someone-else"))
-        check(True, "someone else is not held back by it")
-    except TooManyQuestionsError:
-        check(False, "someone else is not held back by it")
-    ACTIVITY.end(tickets[0])
-    try:
-        admit(person)
-        check(True, "one finishes: the next question is accepted")
-    except TooManyQuestionsError:
-        check(False, "one finishes: the next question is accepted")
-    ACTIVITY.end(tickets[1])
+    with ExitStack() as open_pages:
+        first = ExitStack()
+        first.enter_context(waiting_on(person))
+        for _ in range(MAX_QUESTIONS_PER_PERSON - 1):
+            open_pages.enter_context(waiting_on(person))
+        check(refused(person), "a third question while two pages wait is refused (429)")
+        check(not refused(SimpleNamespace(id="someone-else")), "someone else is not held back by it")
+        first.close()
+        check(not refused(person), "a page closed — answered or abandoned — frees its place at once")
 
     print()
     if FAILURES:
