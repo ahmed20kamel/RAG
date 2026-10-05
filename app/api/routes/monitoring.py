@@ -80,6 +80,44 @@ def operational_alerts(container, settings) -> list[dict]:
     return alerts
 
 
+@router.get("/admin/unanswered")
+def unanswered_questions(
+    days: int = Query(7, ge=1, le=90),
+    limit: int = Query(100, ge=1, le=500),
+    _user: User = require(Permission.SYSTEM_MONITOR),
+) -> list[dict]:
+    """Questions the system did not answer, newest first: the list to work from when
+    deciding what it is missing — a document, a synonym, or a reading it got wrong."""
+    from datetime import UTC, datetime, timedelta
+
+    from sqlalchemy import select
+
+    from app.models.auth import User as UserModel
+    from app.models.metrics import RequestMetric
+    from app.services.metrics import REASON_LABELS
+
+    since = datetime.now(UTC) - timedelta(days=days)
+    with SessionLocal() as session:
+        rows = session.execute(
+            select(RequestMetric, UserModel.email)
+            .outerjoin(UserModel, UserModel.id == RequestMetric.user_id)
+            .where(RequestMetric.created_at >= since, RequestMetric.outcome != "answered", RequestMetric.question != "")
+            .order_by(RequestMetric.created_at.desc())
+            .limit(limit)
+        ).all()
+    return [
+        {
+            "created_at": metric.created_at.isoformat(timespec="minutes"),
+            "user": email or "",
+            "outcome": metric.outcome,
+            "reason": REASON_LABELS.get(metric.refusal_reason, metric.refusal_reason or metric.error_type),
+            "question": metric.question,
+            "retrieved": metric.retrieved,
+        }
+        for metric, email in rows
+    ]
+
+
 @router.get("/admin/reports/latest")
 def latest_report(_user: User = require(Permission.SYSTEM_MONITOR)) -> dict:
     """The report the nightly review wrote last (scripts/nightly_review.py)."""

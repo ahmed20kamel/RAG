@@ -45,7 +45,18 @@ EXTENSION_HINTS: dict[str, FileType] = {
     ".docx": FileType.DOCX,
     ".xlsx": FileType.XLSX,
     ".xlsm": FileType.XLSX,
+    ".png": FileType.IMAGE,
+    ".jpg": FileType.IMAGE,
+    ".jpeg": FileType.IMAGE,
+    ".tif": FileType.IMAGE,
+    ".tiff": FileType.IMAGE,
+    ".bmp": FileType.IMAGE,
+    ".webp": FileType.IMAGE,
 }
+
+#: Photos and scans saved as pictures. Any of these signatures is an image; which kind
+#: does not matter, since every one is read the same way.
+IMAGE_MAGIC = (b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff", b"II*\x00", b"MM\x00*", b"BM")
 
 
 class DetectionResult:
@@ -86,6 +97,8 @@ def _sniff(content: bytes) -> tuple[str, bool]:
         return FileType.PDF, False
     if content.startswith(ZIP_MAGIC):
         return _inside_zip(content)
+    if content.startswith(IMAGE_MAGIC) or (content[:4] == b"RIFF" and content[8:12] == b"WEBP"):
+        return FileType.IMAGE, False
     return FileType.UNKNOWN, False
 
 

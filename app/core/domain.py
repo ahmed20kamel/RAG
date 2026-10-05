@@ -55,6 +55,7 @@ class FileType(StrEnum):
     PDF = "pdf"
     DOCX = "docx"
     XLSX = "xlsx"
+    IMAGE = "image"
     UNKNOWN = "unknown"
 
 

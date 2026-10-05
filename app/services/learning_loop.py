@@ -88,6 +88,10 @@ class RephraseLearner:
             previous = self._unanswered.pop(user.id, None)
         if previous is None or now - previous[0] > self.window:
             return None
+        # A suggestion clicked after a refusal re-asks the same question "in file X":
+        # what changed is the file named, not the wording — nothing to learn from it.
+        if " في ملف " in question:
+            return None
         found = self.pair(previous[1], question)
         if found is None:
             return None

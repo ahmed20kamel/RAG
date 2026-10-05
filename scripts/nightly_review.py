@@ -112,6 +112,10 @@ def report(hours: int, organized: list[str]) -> str:
         if reasons:
             lines += ["", "**أسباب الرفض:**"]
             lines += [f"- {REASON_LABELS.get(r, r or 'غير محدد')}: {n}" for r, n in reasons.most_common(5)]
+        missed = [m for m in metrics if m.outcome != "answered" and (m.question or "").strip()]
+        if missed:
+            lines += ["", f"**أسئلة لم يُجب عنها ({len(missed)}) — راجعها لتعرف ما ينقص:**"]
+            lines += [f"- «{m.question.strip()[:140]}»" for m in missed[:10]]
     else:
         lines.append("- لم تُطرح أسئلة.")
 

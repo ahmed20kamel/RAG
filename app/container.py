@@ -8,6 +8,7 @@ from app.config import Settings
 from app.parsers.base import ParserRegistry
 from app.parsers.docx_parser import DocxParser
 from app.parsers.markdown_parser import MarkdownParser
+from app.parsers.image_parser import ImageParser
 from app.parsers.pdf_parser import PdfParser
 from app.parsers.xlsx_parser import XlsxParser
 from app.services.answer_validation import AnswerValidator
@@ -114,6 +115,7 @@ class Container:
             XlsxParser(),
             DocxParser(settings.max_heading_depth),
             PdfParser(enable_ocr=settings.enable_ocr),
+            ImageParser(),
         ])
 
         self.chunker = HeadingAwareChunker(

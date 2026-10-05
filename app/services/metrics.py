@@ -109,6 +109,7 @@ class MetricsRecorder:
             model=response.model or "",
             reranker=self.reranker_name,
             question_hash=question_hash(question),
+            question=question[:1000] if outcome != "answered" else "",
             answer_id=response.answer_id or "",
             user_id=getattr(user, "id", None),
         )
@@ -120,7 +121,8 @@ class MetricsRecorder:
         row = RequestMetric(
             channel=channel, outcome="error", error_type=type(error).__name__[:64],
             total_ms=total_ms, stages={}, model="", reranker=self.reranker_name,
-            question_hash=question_hash(question), user_id=getattr(user, "id", None),
+            question_hash=question_hash(question), question=question[:1000],
+            user_id=getattr(user, "id", None),
         )
         self._count(channel, "error", total_ms, 0, 0)
         self._persist(row)

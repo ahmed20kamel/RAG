@@ -158,7 +158,8 @@ class Settings(BaseSettings):
     #: knowledge base are unchanged (app/services/learning_loop.py).
     answer_memory_enabled: bool = True
     allowed_extensions: Annotated[list[str], NoDecode] = Field(
-        default_factory=lambda: [".md", ".markdown", ".xlsx", ".xlsm", ".docx", ".pdf"]
+        default_factory=lambda: [".md", ".markdown", ".xlsx", ".xlsm", ".docx", ".pdf",
+                                 ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"]
     )
 
     default_category: str = "General"

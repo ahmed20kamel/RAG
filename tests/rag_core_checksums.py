@@ -216,6 +216,9 @@ DECLARED = [
     # Questions first: filing waits for a quiet model; the answer stream keeps its
     # connection open with a line every few seconds while the model writes.
     "app/services/activity.py",
+    # Pictures read like scanned pages. A question with no answer asks back with the
+    # closest files as choices, and its wording is kept so the misses can be fixed.
+    "app/parsers/image_parser.py",
     "app/schemas/document.py",
     "app/api/routes/documents.py",
     "app/api/routes/chat.py",

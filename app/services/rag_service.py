@@ -527,6 +527,7 @@ class RagService:
                 "model-read-evidence-and-refused",
                 retrieved=len(sources),
                 looked_at=self._section_names(sources),
+                suggestions=self._suggest_from_sources(analysis.question, sources),
             )
 
         coverage = self.coverage.check(contract, bound, answer)
@@ -654,7 +655,10 @@ class RagService:
           values with nothing to separate them is exactly the guess this system refuses.
         """
         if self.knowledge_answer_mode != "eligible":
-            return self._empty(plan, timings, analysis, "knowledge-only-mode-off")
+            return self._empty(
+                plan, timings, analysis, "knowledge-only-mode-off",
+                suggestions=self._suggest_documents(analysis.question, user),
+            )
         if not (self.enable_knowledge_layer and self.knowledge_service and user is not None):
             return self._empty(plan, timings, analysis, "knowledge-layer-unavailable")
 
@@ -1264,8 +1268,13 @@ class RagService:
         reason: str = "",
         retrieved: int = 0,
         looked_at: list[str] | None = None,
+        suggestions: list[ChatChoice] | None = None,
     ) -> ChatResponse:
         """The refusal — and the one place the web is allowed to be consulted.
+
+        With `suggestions` it is a question back instead of a dead end: "I did not find
+        it as you asked — did you mean one of these?", each choice re-asking the same
+        question inside one file.
 
         Every path that gives up on the corpus returns through here: no candidates, no
         context, nothing approved that could answer alone, or a model that read the
@@ -1278,8 +1287,21 @@ class RagService:
         if web is not None:
             return web
 
+        english = getattr(analysis, "language", "") == "en"
+        if suggestions:
+            refusal = (
+                "I could not find a direct answer as you asked it. These are the closest "
+                "files to what you asked about — choose one to search it alone, or rephrase "
+                "the question with the document's own words."
+                if english else
+                "لم أجد إجابة مباشرة بصيغة سؤالك. هذه أقرب الملفات لما سألت عنه — اختر ما "
+                "تقصده لأبحث فيه وحده، أو أعد صياغة السؤال بكلمات المستند."
+            )
+        else:
+            refusal = INSUFFICIENT_ANSWER
         return ChatResponse(
-            answer=INSUFFICIENT_ANSWER,
+            answer=refusal,
+            choices=suggestions or [],
             grounded=False,
             sources=[],
             # How many passages retrieval actually found, even though none of them is
@@ -1318,6 +1340,47 @@ class RagService:
             refusal_reason=reason,
             timings_ms=timings,
         )
+
+    #: Choices offered when a question finds no answer: few enough to read at a glance.
+    MAX_SUGGESTIONS = 3
+
+    @staticmethod
+    def _scoped(question: str, filename: str) -> str:
+        """The same question, naming one file — which the document scope then searches alone."""
+        return f"{question.strip().rstrip('؟?')} في ملف {filename}؟"
+
+    def _suggest_from_sources(self, question: str, sources: list) -> list[ChatChoice]:
+        """The files the search landed on, closest first, as questions to re-ask in each."""
+        seen: list[str] = []
+        choices: list[ChatChoice] = []
+        for source in sources:
+            filename = getattr(source, "filename", "") or ""
+            if not filename or filename in seen:
+                continue
+            seen.append(filename)
+            leaf = (getattr(source, "section", "") or getattr(source, "heading", "") or "").split("→")[-1].strip("#*_ ").strip()
+            label = f"{leaf[:50]} — {filename}" if leaf else filename
+            choices.append(ChatChoice(label=label, question=self._scoped(question, filename)))
+            if len(choices) >= self.MAX_SUGGESTIONS:
+                break
+        return choices
+
+    def _suggest_documents(self, question: str, user) -> list[ChatChoice]:
+        """Nothing found at all: the reader's most recent files, to search one of them."""
+        try:
+            from sqlalchemy import select
+
+            from app.models.document import Document
+            with session_scope() as db:
+                query = select(Document.filename).where(Document.status == "completed")
+                owner = access.owner_filter(user)
+                if owner is not None:
+                    query = query.where(Document.owner_id == owner)
+                names = list(db.scalars(query.order_by(Document.uploaded_at.desc()).limit(self.MAX_SUGGESTIONS)))
+        except Exception:  # noqa: BLE001 - suggestions are optional; the refusal still stands
+            logger.exception("Could not list documents to suggest")
+            return []
+        return [ChatChoice(label=f"ابحث في: {name}", question=self._scoped(question, name)) for name in names]
 
     def _web_answer(
         self, plan: QueryPlan, timings: dict[str, int], analysis, reason: str

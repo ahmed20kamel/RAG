@@ -66,12 +66,38 @@ Ensure-Task 'RAG Backup' (New-ScheduledTaskTrigger -Daily -At 2:00am) 'scripts/b
 Ensure-Task 'RAG Backup Drill' (New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 3:00am) 'scripts/backup.py --drill' 'backup.log'
 Ensure-Task 'RAG Nightly' (New-ScheduledTaskTrigger -Daily -At 2:30am) 'scripts/nightly_review.py' 'nightly.log'
 
+# Settings live in .env, which git never carries. A format the code learns to read is
+# added to the machine's allowed list here, once; the server restarts to pick it up.
+$configChanged = $false
+function Ensure-AllowedExtensions([string[]]$wanted) {
+    $envFile = Join-Path $Root '.env'
+    if (-not (Test-Path $envFile)) { return }
+    $lines = [IO.File]::ReadAllLines($envFile)
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -notlike 'ALLOWED_EXTENSIONS=*') { continue }
+        $current = ($lines[$i] -replace '^ALLOWED_EXTENSIONS=', '').Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+        $missing = $wanted | Where-Object { $current -notcontains $_ }
+        if (-not $missing) { return }
+        $lines[$i] = 'ALLOWED_EXTENSIONS=' + (($current + $missing) -join ',')
+        [IO.File]::WriteAllLines($envFile, $lines, (New-Object Text.UTF8Encoding($false)))
+        Log "  allowed formats extended: $($missing -join ',')"
+        $script:configChanged = $true
+        return
+    }
+}
+Ensure-AllowedExtensions @('.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp', '.webp')
+
 # Git writes to stderr; caught as text so the log says why a fetch failed.
 $fetch = & cmd /c "`"$git`" fetch --quiet origin $Branch 2>&1"
 if ($LASTEXITCODE -ne 0) { Log "fetch from GitHub failed: $(($fetch | Select-Object -Last 2) -join ' ')"; exit 1 }
 $current = (& $git rev-parse --verify --quiet HEAD)
 $published = (& $git rev-parse "origin/$Branch")
-if (-not $Force -and $current -eq $published) { exit 0 }
+if (-not $Force -and $current -eq $published) {
+    if ($configChanged) {
+        if (Restart-Server) { Log '  restarted for the new settings' } else { Log '  RESTART FOR NEW SETTINGS FAILED - check data\logs\server.log' }
+    }
+    exit 0
+}
 
 $changed = if ($current) { @(& $git diff --name-only $current $published) } else { @('requirements.txt', 'migrations/') }
 Log "updating $current -> $published ($($changed.Count) files changed)"

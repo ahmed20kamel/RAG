@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, Index, Integer, String
+from sqlalchemy import JSON, Boolean, DateTime, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.database import Base
@@ -54,6 +54,10 @@ class RequestMetric(Base):
     model: Mapped[str] = mapped_column(String(128), default="", nullable=False)
     reranker: Mapped[str] = mapped_column(String(32), default="", nullable=False)
     question_hash: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    #: The wording of a question that was not answered — kept for those only, because
+    #: those are the ones someone has to read to find out what the system is missing.
+    #: An answered question keeps only its hash, as before.
+    question: Mapped[str] = mapped_column(Text, default="", nullable=False)
     answer_id: Mapped[str] = mapped_column(String(36), default="", nullable=False)
     user_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
 

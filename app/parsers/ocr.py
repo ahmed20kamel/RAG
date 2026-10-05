@@ -129,6 +129,32 @@ def capability() -> OcrCapability:
     return OcrCapability(True, "", languages, binary)
 
 
+#: Below this many pixels on the longer side, a picture is enlarged before reading:
+#: Tesseract misreads small type, and phone screenshots are often just that.
+MIN_READ_SIDE = 1600
+
+
+def read_image(image) -> str:
+    """One picture read, or an empty string. Same languages and repair as a PDF page."""
+    ability = capability()
+    if not ability.available:
+        return ""
+    try:
+        import pytesseract
+
+        picture = image.convert("RGB")
+        longest = max(picture.size)
+        if longest < MIN_READ_SIDE:
+            factor = MIN_READ_SIDE / longest
+            picture = picture.resize((round(picture.width * factor), round(picture.height * factor)))
+        text = pytesseract.image_to_string(picture, lang=LANGUAGES)
+    except Exception:  # noqa: BLE001
+        logger.exception("OCR failed on an image")
+        return ""
+    cleaned = repair_arabic(text).strip()
+    return cleaned if len(cleaned) >= MIN_USABLE_CHARS else ""
+
+
 def read_page(page) -> str:
     """One PDF page rendered and read, or an empty string.
 
