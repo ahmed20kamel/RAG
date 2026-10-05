@@ -19,7 +19,7 @@ from app.models.database import Base
 # Importing the model modules registers their mappers on Base.metadata; without this
 # autogenerate would see an empty schema and propose dropping every table.
 from app.models import (  # noqa: F401
-    answer_trace, auth, document, integration, knowledge, knowledge_items, metrics,
+    answer_trace, auth, document, integration, knowledge, knowledge_items, metrics, question_log,
 )
 
 config = context.config

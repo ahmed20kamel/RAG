@@ -39,7 +39,7 @@ SessionLocal = sessionmaker(bind=engine, expire_on_commit=False, future=True)
 
 def init_database() -> None:
     from app.models import (  # noqa: F401 - registers the mappers
-        answer_trace, auth, document, integration, knowledge, knowledge_items, metrics,
+        answer_trace, auth, document, integration, knowledge, knowledge_items, metrics, question_log,
     )
 
     Base.metadata.create_all(bind=engine)

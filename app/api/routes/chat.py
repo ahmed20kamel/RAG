@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+from typing import Literal
 
 from fastapi import APIRouter
+from pydantic import BaseModel, Field
 
 from app.api.deps import ContainerDep, RagServiceDep, SessionDep, require
 from app.core.knowledge import KnowledgeType
@@ -18,6 +20,28 @@ from app.services.signal_detector import LearningSignal
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["chat"])
+
+
+class AnswerFeedback(BaseModel):
+    answer_id: str = Field(min_length=1, max_length=36)
+    #: "up", "down", or "" to take the thumbs back.
+    feedback: Literal["up", "down", ""]
+
+
+@router.post("/chat/feedback")
+def answer_feedback(
+    body: AnswerFeedback, service: RagServiceDep, user: User = require(Permission.CHAT_ASK)
+) -> dict[str, object]:
+    """The reader's thumbs on an answer. A thumbs-down answer is never repeated from
+    memory: the same question is answered afresh next time."""
+    memory = getattr(service, "question_memory", None)
+    if memory is None:
+        return {"recorded": False}
+    questions = memory.feedback(user, body.answer_id, body.feedback)
+    if body.feedback == "down" and getattr(service, "answer_memory", None) is not None:
+        for question in questions:
+            service.answer_memory.forget(user, question)
+    return {"recorded": bool(questions)}
 
 
 @router.post("/chat", response_model=ChatResponse)

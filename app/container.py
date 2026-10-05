@@ -45,6 +45,7 @@ from app.services.query_analysis import QueryAnalyzer
 from app.services.query_rewrite import SynonymLexicon, learned_terms_from_db
 from app.services.rag_service import RagService
 from app.services.learning_loop import AnswerMemory, RephraseLearner
+from app.services.question_memory import QuestionMemory
 from app.services.organizer import DocumentOrganizer
 from app.services.table_assist import RagflowTableAssist
 from app.services.reranking import CrossEncoderReranker, FeatureReranker
@@ -270,6 +271,7 @@ class Container:
             web_search=self.web_search,
             metrics=self.metrics,
             answer_memory=AnswerMemory() if settings.answer_memory_enabled else None,
+            question_memory=QuestionMemory(self.query_analyzer) if settings.answer_memory_enabled else None,
             document_scope=DocumentScope(),
             redact_sensitive=settings.redact_sensitive,
             conflicts=self.conflict_detector,

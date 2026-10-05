@@ -28,6 +28,7 @@ from app.schemas.chat import (
 )
 from app.services import access
 from app.services.activity import ACTIVITY
+from app.services.learning_loop import AnswerMemory
 from app.services.answer_validation import AnswerValidator
 from app.services.arithmetic import ArithmeticVerifier
 from app.services.in_force import extract_for_documents
@@ -265,8 +266,12 @@ class RagService:
         document_scope=None,
         redact_sensitive: bool = True,
         answer_memory=None,
+        question_memory=None,
     ) -> None:
         self.redact_sensitive = redact_sensitive
+        #: Every question kept and learned from (question_memory.QuestionMemory). None —
+        #: as in tests that build this directly — keeps and learns nothing.
+        self.question_memory = question_memory
         #: Answers to repeated questions (learning_loop.AnswerMemory). None answers every
         #: question afresh, as tests that build this directly expect.
         self.answer_memory = answer_memory
@@ -316,29 +321,68 @@ class RagService:
         started = time.perf_counter()
         # Background jobs that need the model wait while anyone is waiting on an answer.
         ticket = ACTIVITY.begin()
+        asked = request
+        prepared = None
         try:
-            response = self._remembered(request, user)
+            # What this person asked before shapes what is searched now: a follow-up is
+            # read in the context of the question it follows, and a wording that once
+            # failed is searched as the wording that later worked.
+            prepared = self._prepare(request, user)
+            if prepared is not None:
+                request = request.model_copy(update={
+                    "question": prepared.question,
+                    "document_ids": request.document_ids or prepared.document_ids,
+                })
+            follow_up = prepared is not None and prepared.follow_up
+            # A follow-up's answer depends on its conversation, so it is neither
+            # answered from memory nor kept there.
+            response = None if follow_up else self._remembered(request, user)
             if response is None:
                 response = self._answer(request, user)
+                if follow_up and prepared.document_ids and not response.grounded and not response.retrieved_chunks:
+                    # The follow-up was about another file after all: the previous
+                    # turn's files held nothing for it. Nothing was generated, so
+                    # searching everything this reader may see costs no second answer.
+                    request = request.model_copy(update={"document_ids": asked.document_ids})
+                    response = self._answer(request, user)
                 self._withhold_sensitive(request.question, response)
-                self._remember(request, user, response)
+                if not follow_up:
+                    self._remember(request, user, response)
+            if prepared is not None and prepared.notes and response.plan is not None:
+                response.plan.rewrites = [*response.plan.rewrites, *prepared.notes]
         except Exception as exc:
             if self.metrics is not None:
                 self.metrics.record_error(
-                    channel, request.question, exc, self._elapsed_ms(started), user
+                    channel, asked.question, exc, self._elapsed_ms(started), user
                 )
             raise
         finally:
             ACTIVITY.end(ticket)
+        self._log_question(asked, user, prepared, response)
         if self.metrics is not None:
             self.metrics.record(
-                channel, request.question, response, self._elapsed_ms(started), user
+                channel, asked.question, response, self._elapsed_ms(started), user
             )
         return response
 
+    def _prepare(self, request: ChatRequest, user):
+        memory = getattr(self, "question_memory", None)
+        if memory is None or user is None:
+            return None
+        return memory.prepare(
+            user, request.question, request.conversation_id,
+            has_scope=bool(request.document_ids or request.category),
+        )
+
+    def _log_question(self, asked: ChatRequest, user, prepared, response: ChatResponse) -> None:
+        memory = getattr(self, "question_memory", None)
+        if memory is None or user is None:
+            return
+        memory.record(user, asked.question, asked.conversation_id, prepared, response, self._memory_stamp(user))
+
     def _memory_stamp(self, user) -> str | None:
         try:
-            return self.answer_memory.stamp(access.owner_filter(user))
+            return AnswerMemory.stamp(access.owner_filter(user))
         except Exception:  # noqa: BLE001 - no stamp, no memory; the question is answered afresh
             logger.exception("Could not read the answer-memory stamp")
             return None
@@ -348,12 +392,17 @@ class RagService:
         has changed. Restricted to plain questions: a request naming documents or a
         category is answered afresh."""
         # getattr: tests assemble this object piece by piece and may not set it.
-        if getattr(self, "answer_memory", None) is None or request.document_ids or request.category:
+        fast = getattr(self, "answer_memory", None)
+        lasting = getattr(self, "question_memory", None)
+        if (fast is None and lasting is None) or request.document_ids or request.category:
             return None
         stamp = self._memory_stamp(user)
         if stamp is None:
             return None
-        cached = self.answer_memory.get(user, request.question, stamp)
+        cached = fast.get(user, request.question, stamp) if fast is not None else None
+        if cached is None and lasting is not None:
+            # Kept in the database too, so a restart does not forget what was answered.
+            cached = lasting.recall(user, request.question, stamp)
         if cached is not None:
             # The original answer's timings would report its minutes as this one's;
             # dropping them lets the monitoring record the real, near-instant time.

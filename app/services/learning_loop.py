@@ -162,6 +162,11 @@ class AnswerMemory:
             self._items.move_to_end(key)
             return copy.deepcopy(response)
 
+    def forget(self, user, question: str) -> None:
+        """Drop one remembered answer — the reader said it was wrong."""
+        with self._lock:
+            self._items.pop(self.key(user, question), None)
+
     def put(self, user, question: str, stamp: str, response) -> None:
         if not answered(response):
             return

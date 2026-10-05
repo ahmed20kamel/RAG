@@ -164,6 +164,8 @@ class ChatRequest(BaseModel):
     top_k: int | None = Field(default=None, ge=1, le=60)
     category: str | None = None
     document_ids: list[str] | None = None
+    #: The browser's conversation: a follow-up is read against the question before it.
+    conversation_id: str | None = Field(default=None, max_length=64)
 
 
 class ChatChoice(BaseModel):

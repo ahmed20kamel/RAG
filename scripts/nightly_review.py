@@ -33,6 +33,7 @@ from app.models.document import Document  # noqa: E402
 from app.models.knowledge import ChunkRecord  # noqa: E402
 from app.models.knowledge_items import KnowledgeItem  # noqa: E402
 from app.models.metrics import RequestMetric  # noqa: E402
+from app.models.question_log import QuestionRecord  # noqa: E402
 from app.services.metrics import REASON_LABELS  # noqa: E402
 from app.services.organizer import DocumentOrganizer  # noqa: E402
 
@@ -84,6 +85,10 @@ def report(hours: int, organized: list[str]) -> str:
         waiting = session.scalar(select(KnowledgeItem.id).where(KnowledgeItem.status.in_(["pending", "in_review"])).limit(1))
         waiting_count = len(list(session.scalars(select(KnowledgeItem.id).where(KnowledgeItem.status.in_(["pending", "in_review"])))))
         uploads = list(session.scalars(select(Document).where(Document.uploaded_at >= since)))
+        log = list(session.scalars(select(QuestionRecord).where(QuestionRecord.created_at >= since)))
+        resolved_ids = [r.resolved_by for r in log if r.resolved_by]
+        resolutions = {r.id: r for r in session.scalars(select(QuestionRecord).where(QuestionRecord.id.in_(resolved_ids)))} if resolved_ids else {}
+        session.expunge_all()
 
     outcomes = Counter(m.outcome for m in metrics)
     total = len(metrics)
@@ -127,6 +132,17 @@ def report(hours: int, organized: list[str]) -> str:
             lines.append(f"- منها **{len(from_rephrasing)}** مرادفًا تعلّمه من إعادة صياغة الأسئلة.")
     else:
         lines.append("- لا جديد.")
+    follow_ups = sum(1 for r in log if r.subject)
+    wordings = [(r, resolutions.get(r.resolved_by)) for r in log if r.resolved_by]
+    disliked = [r for r in log if r.feedback == "down"]
+    if follow_ups:
+        lines.append(f"- **{follow_ups}** سؤال متابعة فُهم في سياق السؤال الذي قبله.")
+    if wordings:
+        lines.append(f"- **{len(wordings)}** صياغة فشلت ثم نجحت بكلمات أخرى — تُبحث بالثانية من الآن:")
+        lines += [f"  - «{a.question[:80]}» ← «{b.question[:80]}»" for a, b in wordings[:10] if b is not None]
+    if disliked:
+        lines += ["", f"**إجابات قيّمها أصحابها 👎 ({len(disliked)}) — لن تُعاد من الذاكرة، وتستحق مراجعة:**"]
+        lines += [f"- «{r.question[:120]}»" for r in disliked[:10]]
     lines.append(f"- بانتظار مراجعتك (معرفة مشتركة): **{waiting_count}**." if waiting else "- لا شيء بانتظار المراجعة.")
 
     lines += ["", "## المستندات", ""]

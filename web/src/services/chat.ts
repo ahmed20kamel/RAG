@@ -16,4 +16,8 @@ export const chatApi = {
     onEvent: (event: ChatStreamEvent) => void,
     signal?: AbortSignal,
   ) => streamNdjson<ChatStreamEvent>('/api/chat/stream', body, onEvent, signal),
+
+  /** The reader's thumbs on an answer; a thumbs-down answer is never repeated. */
+  feedback: (answerId: string, feedback: 'up' | 'down' | null) =>
+    api.post<{ recorded: boolean }>('/api/chat/feedback', { answer_id: answerId, feedback: feedback ?? '' }),
 }

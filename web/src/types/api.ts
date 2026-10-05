@@ -148,6 +148,8 @@ export interface ChatRequest {
   top_k?: number | null
   category?: string | null
   document_ids?: string[] | null
+  /** Lets the server read a follow-up against the question before it. */
+  conversation_id?: string | null
 }
 
 

@@ -11,6 +11,7 @@ import { useHotkeys } from '@/hooks/useHotkeys'
 import { useIsTablet } from '@/hooks/useMediaQuery'
 import { useTranslation } from '@/hooks/useTranslation'
 import { useLibraryStats } from '@/hooks/useDocuments'
+import { chatApi } from '@/services/chat'
 import { ApiError } from '@/services/client'
 import { toast } from '@/state/toasts'
 import { newId, useConversations, type ChatMessage, type Feedback } from '@/state/conversations'
@@ -86,6 +87,7 @@ export function ChatPage() {
         const response = await ask({
           question,
           document_ids: documentFilter ? [documentFilter] : null,
+          conversation_id: conversationId,
         })
         if (!response) return
         appendMessage(conversationId, { ...placeholder, content: response.answer, response })
@@ -138,6 +140,9 @@ export function ChatPage() {
       if (!conversation) return
       updateMessage(conversation.id, messageId, { feedback })
       if (feedback) toast.info(t('chat.feedbackSaved'))
+      // Sent to the server too: a thumbs-down answer is not given out again.
+      const answerId = conversation.messages.find((m) => m.id === messageId)?.response?.answer_id
+      if (answerId) void chatApi.feedback(answerId, feedback).catch(() => undefined)
     },
     [conversation, updateMessage, t],
   )
