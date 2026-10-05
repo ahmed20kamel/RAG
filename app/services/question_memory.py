@@ -45,6 +45,20 @@ LEADING_QUESTION = re.compile(
     r"^\s*(?:ما\s+هي|ما\s+هو|ماذا|ما|كم|هل|متى|أين|اين|كيف|من|لماذا|what|how|when|is|are)\s+",
     re.IGNORECASE,
 )
+#: How a question or a request opens. A message that opens no other way and carries no
+#: question mark is a statement — and mid-conversation, a statement is the reader telling
+#: the system something about what they just asked: "the first item, 2172 m², is in
+#: TOTAL ADDED". Searched on its own it found nothing; it is the previous question's
+#: missing detail.
+ASKING = re.compile(
+    r"[?؟]|^\s*(?:و\s*)?(?:what|which|who|whom|whose|when|where|why|how|is|are|was|were|do|does|did|"
+    r"can|could|would|will|should|shall|may|list|show|give|tell|find|compare|explain|summari[sz]e|"
+    r"calculate|get|provide|send|make|export|"
+    r"ما|ماذا|ماهو|ماهي|كم|هل|متى|أين|اين|كيف|لماذا|لم|من|أي|اي|ايش|إيش|شو|فين|امتى|إمتى|ازاي|إزاي|ليه|"
+    r"هات|هاتلي|اعطني|أعطني|اذكر|عدد|عدّد|وضح|وضّح|اشرح|لخص|لخّص|قارن|احسب|اعرض|ابحث|ابعت|اعمل|طلع|"
+    r"عايز|عاوز|أريد|اريد|ابغى|أبغى|ممكن|لو\s+سمحت)\b",
+    re.IGNORECASE,
+)
 #: Words that point at something shown rather than name it.
 POINTING = re.compile(
     r"\b(?:this|these|that|here|attached|picture|image|screenshot)\b|هذا|هذه|هذي|هنا|دا|ده|دي|فيها|فيه|الصورة|المرفق",
@@ -84,6 +98,21 @@ class QuestionMemory:
         return bool(FOLLOW_UP_OPENINGS.match(question)) or len(self._own_words(question)) <= 1
 
     @staticmethod
+    def is_statement(text: str) -> bool:
+        """Neither a question nor a request: something the reader is telling."""
+        return not ASKING.search(text.strip())
+
+    @staticmethod
+    def clarified(subject: str, statement: str) -> str:
+        """The earlier question, asked again with what the reader has just added — one
+        sentence, so it is answered as one question and not split into two."""
+        body = subject.strip().rstrip("؟?. ")
+        detail = statement.strip().rstrip("؟?. ")
+        if language_of(subject + " " + statement) == "en":
+            return f"{body} — given that {detail}?"
+        return f"{body} — علمًا بأن {detail}؟"
+
+    @staticmethod
     def subject_of(record: QuestionRecord) -> str:
         """What a turn was about: its own question, or — for a follow-up — the question
         the chain started from."""
@@ -112,7 +141,8 @@ class QuestionMemory:
         try:
             with session_scope() as db:
                 previous = self._last_turn(db, user.id, conversation_id)
-                continues = self.is_follow_up(question) or (pictured and previous is not None and (
+                telling = previous is not None and self.is_statement(question)
+                continues = telling or self.is_follow_up(question) or (pictured and previous is not None and (
                     previous.outcome != "answered" or POINTING.search(question)
                 ))
                 if previous is not None and continues:
@@ -120,6 +150,13 @@ class QuestionMemory:
                     scope = None
                     if not has_scope and previous.outcome == "answered" and previous.document_ids:
                         scope = list(previous.document_ids)
+                    if telling:
+                        return Prepared(
+                            self.clarified(subject, question),
+                            document_ids=scope,
+                            notes=[f"توضيح للسؤال السابق ← أُعيدت الإجابة عن «{subject}» بما أضفته"],
+                            subject=subject,
+                        )
                     return Prepared(
                         self.attach(question, subject),
                         document_ids=scope,

@@ -61,6 +61,16 @@ logger = logging.getLogger(__name__)
 
 INSUFFICIENT_ANSWER = "لا توجد معلومات كافية في قاعدة المعرفة للإجابة عن هذا السؤال."
 
+#: Thanks and acknowledgements, alone in a message: not questions, and not details of the
+#: previous one either.
+SMALL_TALK = re.compile(
+    r"^\s*(?:شكرا|شكرًا|شكراً|شكرا لك|مشكور|متشكر|تسلم|تسلم ايدك|يعطيك العافية|جزاك الله خيرا|"
+    r"تمام|تمام كدا|تمام كده|اوك|أوك|اوكي|حلو|جميل|ممتاز|رائع|"
+    r"ok|okay|thanks|thank you|thanks a lot|thx|great|cool|perfect|nice|good|👍|🙏|❤️)"
+    r"[\s!.,،؟?😊🙏👍❤️]*$",
+    re.IGNORECASE,
+)
+
 SYSTEM_PROMPT = f"""أنت مساعد معرفي للشركة. ما يصلك في "الوقائع المستخرجة" و"المصادر" مأخوذ من قاعدة معرفة الشركة، وهو مرجعك الوحيد.
 
 ترتيب ما يصلك:
@@ -90,6 +100,7 @@ SYSTEM_PROMPT = f"""أنت مساعد معرفي للشركة. ما يصلك ف�
 - يمكنك وضع أيقونة واحدة مناسبة في بداية بند مهم (💰 للمبالغ، 📅 للتواريخ والمدد، ⚠️ للتنبيهات والتعارض، 📌 لملاحظة)، باعتدال ودون أيقونة في كل سطر.
 - استخدم جدولًا قصيرًا فقط عند مقارنة قيم متعددة.
 - إن كان مفيدًا، اختم بسطر واحد قصير يعرض خطوة تالية مرتبطة بالسؤال، مثل: «تحب أطلّعلك جدول الدفعات كاملًا؟».
+- إن أجبت عن أي جزء، فلا تُلحق جملة الرفض بآخر الإجابة؛ بيّن الجزء غير المتوفر بجملة عادية بلغة السؤال.
 
 لا تلجأ إلى الجملة التالية إلا إذا كانت المصادر لا تتضمن أي معلومة تخص السؤال إطلاقًا، وفي هذه الحالة اكتبها وحدها دون أي إضافة:
 {INSUFFICIENT_ANSWER}"""
@@ -181,6 +192,21 @@ CLARIFY_SYSTEM_PROMPT = """أنت مساعد معرفي. رفضتَ للتو ا�
 3) يجوز أن تعرض تفسيرين على الأكثر إن كان كلاهما محتملًا، وتسأل المستخدم أيهما يقصد.
 4) لا تخترع أي معلومة غير موجودة في المقاطع. لا تستنتج تواريخ أو أرقامًا.
 5) إن لم يكن في المقاطع ما يُرجَّح أنه المقصود، فاكتب حرفيًا: «لا توجد معلومات كافية في قاعدة المعرفة للإجابة عن هذا السؤال.»"""
+
+#: The same task for a question asked in English. The Arabic version's fixed sentences
+#: were copied into English answers word for word, so an English question got an Arabic
+#: reply. The refusal sentence stays the Arabic one: it is how a refusal is recognised.
+CLARIFY_SYSTEM_PROMPT_EN = f"""You are a knowledge assistant. You have just declined to answer a question although passages from the documents were found.
+
+Your only task now: do the passages contain what the question most likely means, written in other words?
+
+Binding rules:
+1) If you find what is most likely meant, start with: "The exact wording of your question does not appear in the documents." Then say: "If you mean <the thing in the document's words>, then: …" with the source number [n].
+2) Never present the interpretation as certain. Always write it as "If you mean…".
+3) You may offer at most two interpretations if both are plausible, and ask which one is meant.
+4) Do not invent anything that is not in the passages. Do not infer dates or numbers.
+5) Answer in English.
+6) If nothing in the passages is likely what is meant, write exactly and only: «{INSUFFICIENT_ANSWER}»"""
 
 CLARIFY_TEMPLATE = """المصادر:
 
@@ -328,6 +354,15 @@ class RagService:
         exception — is counted exactly once, and no route can forget.
         """
         started = time.perf_counter()
+        if SMALL_TALK.match(request.question) and not (request.image_text or request.image_marked):
+            # "شكرًا", "تمام", "thanks": answered as what they are. Read as a follow-up,
+            # a thank-you re-asked the previous question and answered it a second time.
+            english = self._in_english(request.question)
+            return ChatResponse(
+                answer=("You're welcome! 😊 Ask me anything else about your files." if english
+                        else "العفو! 😊 لو عندك أي سؤال تاني عن ملفاتك، أنا موجود."),
+                grounded=True, model=self.llm.model, answer_source="internal",
+            )
         # Background jobs that need the model wait while anyone is waiting on an answer.
         ticket = ACTIVITY.begin(getattr(user, "id", None))
         asked = request
@@ -1619,7 +1654,7 @@ class RagService:
         started = time.perf_counter()
         try:
             answer = self.llm.chat(
-                CLARIFY_SYSTEM_PROMPT,
+                CLARIFY_SYSTEM_PROMPT_EN if self._in_english(analysis.question) else CLARIFY_SYSTEM_PROMPT,
                 CLARIFY_TEMPLATE.format(
                     context=context,
                     question=analysis.question,
@@ -1681,15 +1716,17 @@ class RagService:
         return int((time.perf_counter() - since) * 1000)
 
     @staticmethod
-    def _language_directive(question: str) -> str:
+    def _in_english(question: str) -> bool:
         # Counted on the prose, not on the file names and codes inside it — a file name
         # outweighed the Arabic around it and an Arabic question was answered in English.
         # Quoted material — a picture's text, a subject carried from the previous turn —
         # is the evidence's language, not the reader's.
         prose = prose_letters(re.sub(r"«[^»]*»", " ", question))
-        arabic = len(ARABIC_RANGE.findall(prose))
-        latin = len(LATIN_RANGE.findall(prose))
-        if latin > arabic:
+        return len(LATIN_RANGE.findall(prose)) > len(ARABIC_RANGE.findall(prose))
+
+    @classmethod
+    def _language_directive(cls, question: str) -> str:
+        if cls._in_english(question):
             return (
                 "Write the answer in English, even if the sources are in Arabic. "
                 "The fallback sentence stays exactly as written in the rules."

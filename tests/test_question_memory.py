@@ -93,6 +93,19 @@ def main() -> int:
     check(not memory.prepare(BOB, "وكم مدته؟", "conv-a", has_scope=False).follow_up,
           "someone else's conversation is never read, even under the same id")
 
+    print("\n=== 1b. a statement is the previous question's missing detail ===")
+    asked = "what is rate for internal paint in the added items section"
+    memory.record(ALICE, asked, "conv-s", None, refused(), "s1")
+    told = 'the first line item with a quantity of 2172 m² is in the "TOTAL ADDED" section'
+    made = memory.prepare(ALICE, told, "conv-s", has_scope=False)
+    check(made.follow_up and made.question.startswith(asked) and "given that" in made.question,
+          "a statement after a question re-asks that question with the detail added", made.question)
+    check(not memory.analyzer.analyze(made.question).multi_part, "…as one question", made.question)
+    for q in ("ما سعر الدهان؟", "give me the rates", "هات جدول الدفعات"):
+        check(not memory.is_statement(q), f"«{q}» is a question or a request, not a statement")
+    check(not memory.prepare(ALICE, told, "conv-new", has_scope=False).follow_up,
+          "a statement that opens a conversation is taken as it is")
+
     print("\n=== 2. a wording that worked ===")
     failed = "ما قيمة الضمان البنكي؟"
     memory.record(ALICE, failed, "conv-c", None, refused(), "s1")
