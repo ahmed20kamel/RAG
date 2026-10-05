@@ -26,23 +26,32 @@ class Activity:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._running: dict[int, tuple[float, bool]] = {}
+        self._owners: dict[int, str] = {}
         self._tickets = itertools.count(1)
         self._last_end = 0.0
         # Only answers that ran alone: one that waited behind others would count the
         # wait as its own time, and every estimate built on it would compound.
         self._alone: deque[float] = deque(maxlen=20)
 
-    def begin(self) -> int:
+    def begin(self, user_id: str | None = None) -> int:
         with self._lock:
             ticket = next(self._tickets)
             self._running[ticket] = (time.monotonic(), not self._running)
+            if user_id:
+                self._owners[ticket] = user_id
             return ticket
+
+    def running_for(self, user_id: str) -> int:
+        """Questions this person has in progress."""
+        with self._lock:
+            return sum(1 for t in self._running if self._owners.get(t) == user_id)
 
     def end(self, ticket: int | None = None) -> None:
         with self._lock:
             if ticket is None and self._running:
                 ticket = min(self._running)
             started = self._running.pop(ticket, None)
+            self._owners.pop(ticket, None)
             self._last_end = time.monotonic()
             if started is not None:
                 began, alone = started

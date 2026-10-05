@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from app.api.deps import ContainerDep, RagServiceDep, SessionDep, require
 from app.core.knowledge import KnowledgeType
 from app.core.permissions import Permission
+from app.exceptions import TooManyQuestionsError
 from app.models.auth import User
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.query_analysis import NORMALISED_INTERROGATIVES
@@ -53,9 +54,32 @@ def chat(
     user: User = require(Permission.CHAT_ASK),
 ) -> ChatResponse:
     logger.info("Chat question from %s (%s chars)", user.email, len(request.question))
+    admit(user)
     response = service.answer(request, user=user)
     _offer_learning(session, container, user, request, response)
     return response
+
+
+#: Questions one person may have in progress at once. Two, not one: stopping a question
+#: in the browser does not stop the model, and a reader who stopped one and asked again
+#: must not be refused while the abandoned answer finishes.
+MAX_QUESTIONS_PER_PERSON = 2
+
+
+def admit(user: User) -> None:
+    """Refuse a question from someone who already has the maximum in progress.
+
+    The model answers one question at a time for everyone; a person sending questions
+    faster than they can be answered makes everyone else wait behind them.
+    """
+    from app.services.activity import ACTIVITY
+
+    if ACTIVITY.running_for(user.id) >= MAX_QUESTIONS_PER_PERSON:
+        raise TooManyQuestionsError(
+            "لديك سؤالان قيد الإجابة الآن. انتظر انتهاء أحدهما ثم اسأل — "
+            "هكذا لا يطول الانتظار عليك ولا على غيرك.",
+            retryable=True,
+        )
 
 
 def _clarification_signal(container, request, response) -> LearningSignal | None:

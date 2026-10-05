@@ -50,7 +50,7 @@ ARCHIVE_PREFIX = "rag-backup-"
 STATUS_FILE = "backup_status.json"
 #: Tables whose row counts go into the manifest and are checked on verify.
 COUNTED_TABLES = ("documents", "chunks", "users", "knowledge_items", "answer_traces",
-                  "integration_clients")
+                  "integration_clients", "question_log")
 
 
 @dataclass

@@ -166,6 +166,8 @@ class ChatRequest(BaseModel):
     document_ids: list[str] | None = None
     #: The browser's conversation: a follow-up is read against the question before it.
     conversation_id: str | None = Field(default=None, max_length=64)
+    #: Asked for again ("regenerate"): answered afresh, never from memory.
+    fresh: bool = False
 
 
 class ChatChoice(BaseModel):

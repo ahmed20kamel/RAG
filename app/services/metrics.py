@@ -44,6 +44,7 @@ REASON_LABELS = {
     "knowledge-lookup-failed": "تعذّر البحث في المعرفة المعتمدة",
     "insufficient-internal-evidence": "أدلة داخلية غير كافية",
     "ambiguous-document": "اسم الملف في السؤال يطابق أكثر من مستند",
+    "ambiguous-question": "سؤال قصير يحتمل أكثر من ملف — سُئل صاحبه أيّها يقصد",
 }
 
 #: Upper bounds of the latency histogram, in seconds. Sized for local generation, where

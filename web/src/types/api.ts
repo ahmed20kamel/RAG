@@ -150,6 +150,8 @@ export interface ChatRequest {
   document_ids?: string[] | null
   /** Lets the server read a follow-up against the question before it. */
   conversation_id?: string | null
+  /** Regenerate: answer afresh rather than from memory. */
+  fresh?: boolean
 }
 
 

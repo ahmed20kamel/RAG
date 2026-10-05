@@ -103,6 +103,12 @@ class LLMError(RagError):
     status_code = 502
 
 
+class TooManyQuestionsError(RagError):
+    """One person asking faster than they can be answered, while others wait."""
+
+    status_code = 429
+
+
 class AuthenticationError(RagError):
     """No valid session, or credentials that did not check out."""
 

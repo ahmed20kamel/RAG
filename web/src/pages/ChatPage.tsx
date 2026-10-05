@@ -75,7 +75,7 @@ export function ChatPage() {
   }, [])
 
   const run = useCallback(
-    async (conversationId: string, question: string) => {
+    async (conversationId: string, question: string, fresh = false) => {
       const placeholder: ChatMessage = {
         id: newId(),
         role: 'assistant',
@@ -88,6 +88,7 @@ export function ChatPage() {
           question,
           document_ids: documentFilter ? [documentFilter] : null,
           conversation_id: conversationId,
+          fresh,
         })
         if (!response) return
         appendMessage(conversationId, { ...placeholder, content: response.answer, response })
@@ -130,7 +131,7 @@ export function ChatPage() {
       const question = [...conversation.messages.slice(0, index)].reverse().find((m) => m.role === 'user')
       if (!question) return
       dropMessagesFrom(conversation.id, assistantMessageId)
-      void run(conversation.id, question.content)
+      void run(conversation.id, question.content, true)
     },
     [conversation, dropMessagesFrom, run],
   )

@@ -19,7 +19,7 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
 from app.api.deps import ContainerDep, CurrentUserDep, RagServiceDep, require
-from app.api.routes.chat import _offer_learning
+from app.api.routes.chat import _offer_learning, admit
 from app.core.permissions import Permission
 from app.models.auth import User
 from app.models.database import SessionLocal
@@ -90,6 +90,7 @@ async def chat_stream(
     user: User = require(Permission.CHAT_ASK),
 ) -> StreamingResponse:
     """Newline-delimited JSON: zero or more stage events, then one result or error."""
+    admit(user)
     loop = asyncio.get_running_loop()
     events: asyncio.Queue = asyncio.Queue()
     root = logging.getLogger("app.services")

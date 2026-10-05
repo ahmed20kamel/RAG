@@ -320,7 +320,7 @@ class RagService:
         """
         started = time.perf_counter()
         # Background jobs that need the model wait while anyone is waiting on an answer.
-        ticket = ACTIVITY.begin()
+        ticket = ACTIVITY.begin(getattr(user, "id", None))
         asked = request
         prepared = None
         try:
@@ -336,7 +336,7 @@ class RagService:
             follow_up = prepared is not None and prepared.follow_up
             # A follow-up's answer depends on its conversation, so it is neither
             # answered from memory nor kept there.
-            response = None if follow_up else self._remembered(request, user)
+            response = None if follow_up or request.fresh else self._remembered(request, user)
             if response is None:
                 response = self._answer(request, user)
                 if follow_up and prepared.document_ids and not response.grounded and not response.retrieved_chunks:
@@ -471,6 +471,9 @@ class RagService:
                     analysis = self.analyzer.analyze(overview, personal)
                     plan.rewrites = [*plan.rewrites, "اسم ملف دون سؤال ← نظرة عامة على الملف"]
 
+        # Whether the asker chose the files — by naming one, clicking one, or filtering.
+        # Read before the access filter, which fills the same field for everyone.
+        chose_files = bool(request.document_ids)
         request = request.model_copy(update={"document_ids": access.restrict(request.document_ids, allowed)})
         retrieval_started = time.perf_counter()
         candidates = self.retriever.retrieve(
@@ -489,6 +492,11 @@ class RagService:
             plan.rewrites = list(analysis.rewrite_notes)
         if analysis.overview and request.document_ids and len(request.document_ids) == 1:
             candidates = self._with_document_header(request.document_ids[0], candidates)
+
+        if candidates and not chose_files:
+            unclear = self._which_file(analysis, candidates, plan, timings)
+            if unclear is not None:
+                return unclear
 
         if not candidates:
             # The documents have nothing. In the production mode that is the end of it:
@@ -1193,6 +1201,54 @@ class RagService:
         if response.validation is not None:
             response.validation.warnings.append(result.summary(english=english))
         logger.info("Withheld from the answer: %s", response.redacted)
+
+    #: A question this short, matching passages in this many files, is asked back.
+    VAGUE_MAX_WORDS = 1
+    VAGUE_MIN_FILES = 2
+
+    def _which_file(self, analysis, candidates: list, plan: QueryPlan, timings: dict) -> ChatResponse | None:
+        """«ما المبلغ؟» across several files: which one, rather than a blend of all.
+
+        Asked only when both hold — the question carries at most one word of its own,
+        and its best passages come from more than one file. A short question one file
+        answers is answered; a long one is specific enough to search. The choices are
+        the files the search itself found, so each is a real place to look, and costs
+        nothing: no answer was generated to get here.
+        """
+        from app.services.question_memory import FILLERS
+
+        own = [k for k in analysis.keywords if k not in NORMALISED_INTERROGATIVES and k not in FILLERS]
+        if len(own) > self.VAGUE_MAX_WORDS or analysis.overview:
+            return None
+        files: list[str] = []
+        for candidate in candidates[:6]:
+            if candidate.filename and candidate.filename not in files:
+                files.append(candidate.filename)
+        if len(files) < self.VAGUE_MIN_FILES:
+            return None
+        files = files[: self.MAX_SUGGESTIONS]
+        english = analysis.language == "en"
+        logger.info("Short question matching %s files; asking which", len(files))
+        plan.scope = " | ".join(files)
+        return ChatResponse(
+            choices=[ChatChoice(label=f"ابحث في: {name}" if not english else f"Search: {name}",
+                                question=self._scoped(analysis.question, name)) for name in files],
+            answer=(
+                "Your question could refer to more than one file. Which one do you mean? "
+                "You can also add a detail to the question."
+                if english else
+                "سؤالك قصير ويحتمل أكثر من ملف. تقصد في أي ملف؟ ويمكنك أيضًا إضافة تفصيل للسؤال."
+            ),
+            grounded=False,
+            sources=[],
+            retrieved_chunks=0,
+            model=self.llm.model,
+            plan=plan,
+            validation=AnswerValidation(complete=False, warnings=[]),
+            answer_source="internal",
+            refusal_reason="ambiguous-question",
+            timings_ms=timings,
+        )
 
     def _ambiguous_document(self, decision, analysis, plan: QueryPlan, timings: dict) -> ChatResponse:
         """The reply when a named file could be several: which one, never a blend."""

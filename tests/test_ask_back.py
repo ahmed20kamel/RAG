@@ -95,6 +95,52 @@ def main() -> int:
     check(rows.get("answered") == "", "an answered question keeps only its hash")
     check(rows.get("refused") == "سؤال لم يُجب عنه", "an unanswered one keeps its wording, to be read and fixed")
 
+    print("\n=== 5. a short question several files match: which file? ===")
+    from app.services.query_analysis import QueryAnalyzer
+
+    analyzer = QueryAnalyzer()
+
+    def hits(*files):
+        return [SimpleNamespace(filename=f) for f in files]
+
+    vague = analyzer.analyze("ما المبلغ؟")
+    asked = rag._which_file(vague, hits("عقد.pdf", "فاتورة.pdf", "عقد.pdf"), QueryPlan(), {})
+    check(asked is not None and len(asked.choices) == 2, "two files match «ما المبلغ؟»: asked which one")
+    check(asked is not None and all(" في ملف " in c.question for c in asked.choices),
+          "each choice re-asks the question inside one file")
+    check(asked is not None and asked.refusal_reason == "ambiguous-question" and not asked.grounded,
+          "recorded as a question back, not as an answer")
+    check(rag._which_file(vague, hits("عقد.pdf", "عقد.pdf"), QueryPlan(), {}) is None,
+          "one file matches: answered, not asked back")
+    specific = analyzer.analyze("ما مبلغ الدفعة المقدمة في العقد؟")
+    check(rag._which_file(specific, hits("عقد.pdf", "فاتورة.pdf"), QueryPlan(), {}) is None,
+          "a specific question is searched, however many files match")
+
+    print("\n=== 6. one person cannot fill the queue ===")
+    from app.api.routes.chat import MAX_QUESTIONS_PER_PERSON, admit
+    from app.exceptions import TooManyQuestionsError
+    from app.services.activity import ACTIVITY
+
+    person = SimpleNamespace(id="busy-reader")
+    tickets = [ACTIVITY.begin(person.id) for _ in range(MAX_QUESTIONS_PER_PERSON)]
+    try:
+        admit(person)
+        check(False, "a third question while two are in progress is refused")
+    except TooManyQuestionsError as exc:
+        check(exc.status_code == 429, "a third question while two are in progress is refused (429)")
+    try:
+        admit(SimpleNamespace(id="someone-else"))
+        check(True, "someone else is not held back by it")
+    except TooManyQuestionsError:
+        check(False, "someone else is not held back by it")
+    ACTIVITY.end(tickets[0])
+    try:
+        admit(person)
+        check(True, "one finishes: the next question is accepted")
+    except TooManyQuestionsError:
+        check(False, "one finishes: the next question is accepted")
+    ACTIVITY.end(tickets[1])
+
     print()
     if FAILURES:
         print(f"{len(FAILURES)} FAILURE(S)")
