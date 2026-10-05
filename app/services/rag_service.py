@@ -111,6 +111,28 @@ EXHAUSTIVE_DIRECTIVE = """هذا سؤال تعداد: المطلوب قائمة 
 - راجع "الوقائع المستخرجة" سطرًا سطرًا قبل أن تنهي إجابتك، وتأكد أنك لم تُسقط أي سطر يخص السؤال.
 - لا تختصر بعبارات مثل "وغيرهم" أو "من بينهم"."""
 
+#: "Assess our position", "what are the risks", "حلّل الموقف": a request for judgement, not
+#: for a figure. Answered in a fixed shape that keeps what the documents say apart from
+#: what is concluded from them — the company's own rule for any analysis.
+ANALYTIC = re.compile(
+    r"حلّ?ل|تحليل|موقفنا|موقف\s+الشركة|المخاطر|مخاطر|نقاط\s+القوة|نقاط\s+الضعف|قيّم\s+موقف|ماذا\s+نفعل|"
+    r"ما\s+العمل|توصيات|توصية|نصيحت|\bassess|\banaly[sz]|\brisks?\b|\bour\s+position\b|\bstrengths?\b|"
+    r"\bweakness|\brecommend|\bwhat\s+should\s+we",
+    re.IGNORECASE,
+)
+ANALYSIS_DIRECTIVE = """هذا طلب تحليل لا سؤال عن معلومة. أجب بهذا الترتيب وبهذه العناوين بالضبط:
+## 📌 الوقائع الثابتة
+ما تنص عليه المصادر حرفيًا ويخص المسألة، كل واقعة برقم مصدرها.
+## 🔍 التحليل
+ما يترتب على هذه الوقائع، مكتوبًا صراحةً على أنه تحليل («يُفهم من…»، «يترتب على ذلك…»)، دون أي رقم أو تاريخ غير وارد في المصادر.
+## ⚠️ المخاطر ونقاط الضعف
+## ✅ نقاط القوة
+## ❓ ما ينقص للحكم
+ما لم تذكره المصادر ويلزم للحكم، والافتراضات إن وُجدت مسمّاة افتراضات.
+## 🧭 التوصيات
+خطوات عملية مشروطة بالوقائع أعلاه («إن ثبت كذا فـ…»)، وأوصِ بمراجعة مختص قانوني أو فني حيث يلزم.
+لا تخلط الوقائع بالتحليل، ولا تقدّم استنتاجًا على أنه نص في المستند. يجوز تجاوز حد 120 كلمة هنا، في حدود 350 كلمة."""
+
 ROLE_DIRECTIVE = """هذا سؤال عن أدوار: اذكر اسم كل صاحب دور ودوره بالضبط كما ورد، منفصلين، ولا تخلط بينهم."""
 
 USER_TEMPLATE = """{facts_block}المصادر:
@@ -428,6 +450,33 @@ class RagService:
             )
         return response
 
+    #: How much of the conversation so far reaches the prompt: two turns, each cut short.
+    #: Enough for "the second item" and "the same contract"; every character costs time.
+    CONVERSATION_TURNS = 2
+    CONVERSATION_CHARS = 400
+
+    def _conversation_block(self, request: ChatRequest, user) -> str:
+        """The last turns of this conversation, marked as context for reading the question
+        and never as a source: an earlier answer is not evidence for this one."""
+        memory = getattr(self, "question_memory", None)
+        if memory is None or user is None or not request.conversation_id:
+            return ""
+        try:
+            turns = memory.recent(user, request.conversation_id, self.CONVERSATION_TURNS)
+        except Exception:  # noqa: BLE001 - answered without the context rather than not at all
+            logger.exception("Could not read the conversation so far")
+            return ""
+        if not turns:
+            return ""
+        lines = [
+            f"س: {question[:200]}\nج: {' '.join(answer.split())[:self.CONVERSATION_CHARS]}"
+            for question, answer in turns
+        ]
+        return (
+            "سياق المحادثة السابقة — لفهم ما يقصده السائل فقط. ليس مصدرًا: لا تستشهد به ولا تنقل منه رقمًا:\n"
+            + "\n\n".join(lines) + "\n\n"
+        )
+
     def _prepare(self, request: ChatRequest, user, pictured: bool = False):
         memory = getattr(self, "question_memory", None)
         if memory is None or user is None:
@@ -636,7 +685,7 @@ class RagService:
         answer = self.llm.chat(
             SYSTEM_PROMPT,
             USER_TEMPLATE.format(
-                facts_block=f"{window_block}{in_force_block}{facts_block}{derived_block}{knowledge_block}",
+                facts_block=f"{self._conversation_block(request, user)}{window_block}{in_force_block}{facts_block}{derived_block}{knowledge_block}",
                 context=context,
                 question=analysis.question,
                 mode_directive=self._mode_directive(analysis)
@@ -707,7 +756,7 @@ class RagService:
                     len(coverage.unmet), [e.requirement.key for e in coverage.unmet],
                 )
 
-        if self._is_compound(analysis) and self.completeness_retry:
+        if self._is_compound(analysis) and self.completeness_retry and not self._is_analytic(analysis):
             parts_started = time.perf_counter()
             answer, answered_separately = self._complete_parts(analysis, answer, context)
             if answered_separately:
@@ -1163,6 +1212,10 @@ class RagService:
 
     @classmethod
     def _mode_directive(cls, analysis) -> str:
+        if cls._is_analytic(analysis):
+            # The analysis has its own sections; numbering the request's parts on top of
+            # them answered "نقاط القوة" twice.
+            return ANALYSIS_DIRECTIVE + "\n\n"
         directives = []
         if analysis.exhaustive:
             directives.append(EXHAUSTIVE_DIRECTIVE)
@@ -1176,6 +1229,10 @@ class RagService:
             )
             directives.append(PARTS_DIRECTIVE.format(parts=numbered))
         return ("\n".join(directives) + "\n\n") if directives else ""
+
+    @staticmethod
+    def _is_analytic(analysis) -> bool:
+        return bool(ANALYTIC.search(getattr(analysis, "question", "") or "")) and not getattr(analysis, "overview", False)
 
     # -- compound questions ------------------------------------------------
     @staticmethod

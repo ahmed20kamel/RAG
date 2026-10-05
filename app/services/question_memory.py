@@ -170,6 +170,18 @@ class QuestionMemory:
             logger.exception("Could not read the question log")
         return Prepared(question)
 
+    def recent(self, user, conversation_id: str, limit: int = 2) -> list[tuple[str, str]]:
+        """The last answered turns of a conversation, oldest first, as (question, answer)."""
+        with session_scope() as db:
+            rows = list(db.scalars(
+                select(QuestionRecord)
+                .where(QuestionRecord.user_id == user.id, QuestionRecord.conversation_id == conversation_id,
+                       QuestionRecord.answer != "")
+                .order_by(QuestionRecord.id.desc())
+                .limit(limit)
+            ))
+            return [(r.question, r.answer) for r in reversed(rows)]
+
     @staticmethod
     def _last_turn(db, user_id: str, conversation_id: str | None) -> QuestionRecord | None:
         if not conversation_id:
