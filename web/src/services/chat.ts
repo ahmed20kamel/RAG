@@ -1,5 +1,5 @@
-import { api, streamNdjson } from './client'
-import type { ChatRequest, ChatResponse, ChatStreamEvent, PictureMark } from '@/types/api'
+import { API_BASE, ApiError, api, streamNdjson } from './client'
+import type { ChatFile, ChatRequest, ChatResponse, ChatStreamEvent, PictureMark } from '@/types/api'
 
 export const chatApi = {
   /** One-shot answer. Used when the stage stream is unavailable. */
@@ -31,6 +31,20 @@ export const chatApi = {
     const extension = audio.type.includes('ogg') ? 'ogg' : audio.type.includes('mp4') ? 'mp4' : 'webm'
     form.append('file', audio, `speech.${extension}`)
     return api.post<{ text: string }>('/api/chat/transcribe', form)
+  },
+
+  /** Downloads a file made for this reader, under the name it was made with. */
+  downloadFile: async (file: ChatFile) => {
+    const response = await fetch(`${API_BASE}/api/chat/files/${file.id}`, { credentials: 'include' })
+    if (!response.ok) throw new ApiError(response.status === 404 ? 'الملف غير موجود أو انتهت مدته (7 أيام).' : 'تعذّر تحميل الملف.', response.status, 'DownloadError')
+    const url = URL.createObjectURL(await response.blob())
+    const link = document.createElement('a')
+    link.href = url
+    link.download = file.name
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
   },
 
   /** The reader's thumbs on an answer; a thumbs-down answer is never repeated. */

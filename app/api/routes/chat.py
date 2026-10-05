@@ -47,6 +47,20 @@ def answer_feedback(
     return {"recorded": bool(questions)}
 
 
+@router.get("/chat/files/{file_id}")
+def download_file(file_id: str, container: ContainerDep, user: User = require(Permission.CHAT_ASK)):
+    """A file made for this reader. Anyone else's id reads as not found."""
+    from urllib.parse import quote
+
+    from fastapi.responses import FileResponse
+
+    stored, path = container.exports.store.open(user.id, file_id)
+    return FileResponse(
+        path, media_type=stored.media_type,
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(stored.name)}"},
+    )
+
+
 @router.post("/chat/picture")
 async def read_chat_picture(
     file: UploadFile = File(...),
@@ -104,7 +118,7 @@ def chat(
     logger.info("Chat question from %s (%s chars)", user.email, len(request.question))
     admit(user)
     with waiting_on(user):
-        response = service.answer(request, user=user)
+        response = container.exports.handle(request, user) or service.answer(request, user=user)
     _offer_learning(session, container, user, request, response)
     return response
 

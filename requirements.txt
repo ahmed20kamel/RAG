@@ -22,3 +22,6 @@ faster-whisper>=1.1
 # faster-whisper 1.2 calls av.open(metadata_errors=...), which PyAV 16+ removed.
 av>=11,<16
 numpy>=1.26
+# Files made in the chat: PDF with Arabic shaping (fpdf2 + HarfBuzz).
+fpdf2>=2.8
+uharfbuzz>=0.40

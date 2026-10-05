@@ -149,6 +149,12 @@ export const ar = {
     completing: 'يكمل ما نقص',
     done: 'اكتملت',
   },
+  files: {
+    download: 'تحميل',
+    downloading: 'يحمّل…',
+    keep: 'متاح 7 أيام',
+    failed: 'تعذّر تحميل الملف',
+  },
   composer: {
     more: 'إضافات: صورة أو صوت',
   },

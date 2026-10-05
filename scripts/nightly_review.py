@@ -167,6 +167,14 @@ def main() -> int:
         organized = [f"- تعذّر تشغيل التصنيف: {exc}"]
     text = report(args.hours, organized)
     try:
+        from app.services.file_export import KEEP_DAYS, FileStore
+
+        removed = FileStore(ROOT / "data" / "exports").remove_older_than(KEEP_DAYS)
+        if removed:
+            text += f"\n- حُذف {removed} ملفًا أُنشئ في المحادثات قبل أكثر من {KEEP_DAYS} أيام.\n"
+    except Exception:  # noqa: BLE001 - kept another night rather than failing the report
+        pass
+    try:
         from app.config import get_settings
         from app.container import Container
         from app.services.index_health import index_health

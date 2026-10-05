@@ -109,7 +109,9 @@ async def chat_stream(
             root.addHandler(collector)
             watch(gone)
             try:
-                response = service.answer(request, user=user, channel="stream")
+                response = container.exports.handle(request, user) or service.answer(
+                    request, user=user, channel="stream"
+                )
                 # The same learning offer the plain route makes. The interface asks through
                 # this route, so without it a question that taught something — or an
                 # interpretation worth keeping — was never offered to the person at all.

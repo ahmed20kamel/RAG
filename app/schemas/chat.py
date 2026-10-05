@@ -181,6 +181,15 @@ class ChatChoice(BaseModel):
     question: str
 
 
+class ChatFile(BaseModel):
+    """A file made for the reader in this reply (GET /api/chat/files/{id})."""
+
+    id: str
+    name: str
+    format: str
+    size: int = 0
+
+
 class ChatResponse(BaseModel):
     answer: str
     grounded: bool
@@ -210,6 +219,8 @@ class ChatResponse(BaseModel):
     refusal_reason: str = ""
     # Identifies the stored trace behind this answer, for "why this answer?".
     answer_id: str = ""
+    #: Files made for this reply — a PDF, Word or Excel asked for in the chat.
+    files: list[ChatFile] = Field(default_factory=list)
     # Present when the question read as teaching rather than asking. An offer to
     # the person, never a change to anything.
     learning_signal: dict | None = None

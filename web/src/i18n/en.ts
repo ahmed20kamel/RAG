@@ -151,6 +151,12 @@ export const en: Dictionary = {
     completing: 'Filling the gaps',
     done: 'Done',
   },
+  files: {
+    download: 'Download',
+    downloading: 'Downloading…',
+    keep: 'kept 7 days',
+    failed: 'The file could not be downloaded',
+  },
   composer: {
     more: 'Add: picture or voice',
   },

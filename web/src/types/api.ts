@@ -177,6 +177,8 @@ export interface ChatResponse {
   coverage: CoverageReport | null
   /** Identifies the stored trace behind this answer, for "why this answer?". */
   answer_id: string
+  /** Files made for this reply — PDF, Word or Excel asked for in the chat. */
+  files?: ChatFile[]
   /** Set when the message read as teaching. An offer to the person, not a change. */
   learning_signal: LearningSignal | null
   timings_ms: Record<string, number>
@@ -381,4 +383,12 @@ export interface ChatPicture {
   text: string
   marked: string
   hasText: boolean
+}
+
+/** A file made for the reader in a reply. */
+export interface ChatFile {
+  id: string
+  name: string
+  format: 'pdf' | 'docx' | 'xlsx' | string
+  size: number
 }

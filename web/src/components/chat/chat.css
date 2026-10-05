@@ -1084,3 +1084,68 @@
   color: var(--danger, #e5484d);
   font-size: var(--text-sm);
 }
+
+/* Files made in a reply ---------------------------------------------------- */
+.file-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-block: var(--space-2);
+  max-inline-size: 30rem;
+}
+
+.file-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.file-card__icon {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  inline-size: 2.75rem;
+  padding-block: var(--space-1);
+  border-radius: var(--radius-md, var(--radius-lg));
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.file-card--pdf .file-card__icon { background: #fde8e8; color: #c62828; }
+.file-card--docx .file-card__icon { background: #e3edfb; color: #1e5bb8; }
+.file-card--xlsx .file-card__icon { background: #e3f4e8; color: #1b7a3d; }
+
+.file-card__icon small {
+  font-size: 0.6rem;
+  font-weight: var(--weight-medium);
+}
+
+.file-card__text {
+  flex: 1;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.file-card__text strong {
+  font-size: var(--text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-card__text small {
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+}
+
+.file-card__download {
+  flex: none;
+}

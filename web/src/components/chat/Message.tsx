@@ -4,6 +4,7 @@ import { cx } from '@/utils/cx'
 import { Icon } from '@/components/ui/Icon'
 import { AnswerDetails } from './AnswerDetails'
 import { CorrectAnswerDialog } from './CorrectAnswerDialog'
+import { FileCards } from './FileCards'
 import { LearningPrompt, TeachFromChatDialog } from './LearningPrompt'
 import { SourceList, WebSourceList } from './SourceCard'
 import { WhyThisAnswer } from './WhyThisAnswer'
@@ -107,6 +108,8 @@ export function AssistantMessage({
         />
 
         {message.stopped && <p className="chat-note">{t('chat.stopped')}</p>}
+
+        {(response?.files?.length ?? 0) > 0 && <FileCards files={response!.files!} />}
 
         {onChoose && (response?.choices?.length ?? 0) > 0 && (
           <div className="msg__choices" role="group" aria-label={t('chat.choices')}>

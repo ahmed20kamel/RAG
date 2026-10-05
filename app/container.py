@@ -48,6 +48,8 @@ from app.services.rag_service import RagService
 from app.services.learning_loop import AnswerMemory, RephraseLearner
 from app.services.question_memory import QuestionMemory
 from app.services.chat_attachments import SpeechToText
+from app.services.exports import ExportService
+from app.services.file_export import FileStore
 from app.services.organizer import DocumentOrganizer
 from app.services.table_assist import RagflowTableAssist
 from app.services.reranking import CrossEncoderReranker, FeatureReranker
@@ -290,6 +292,10 @@ class Container:
             knowledge_answer_mode=settings.knowledge_answer_mode,
             knowledge_only_threshold=settings.knowledge_only_threshold,
             enable_knowledge_layer=settings.enable_knowledge_layer,
+        )
+        # Files asked for in the chat: PDF, Word, Excel, each in its reader's own folder.
+        self.exports = ExportService(
+            self.rag_service, FileStore(BASE_DIR / "data" / "exports"), self.knowledge,
         )
 
     def warmup(self) -> None:
