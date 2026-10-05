@@ -93,6 +93,8 @@ def main() -> int:
           "two unknown words: which one meant what is a guess — no pair")
     check(learner.pair("كم غرامة التأخير", "ما مدة تنفيذ المشروع") is None,
           "a different question altogether is not a rephrasing")
+    check(learner.pair("whem is the handover of the contract", "مدة تنفيذ المشروع") is None,
+          "a typo followed by another question teaches nothing")
 
     learner.observe(ALICE, "كم الحسم اليومي في العقد", reply(False))
     learned = learner.observe(ALICE, "كم غرامة التأخير اليومية في العقد", reply(True))

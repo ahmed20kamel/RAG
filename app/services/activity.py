@@ -27,6 +27,11 @@ class Activity:
             self._active = max(0, self._active - 1)
             self._last_end = time.monotonic()
 
+    @property
+    def active(self) -> int:
+        with self._lock:
+            return self._active
+
     def idle_for(self, seconds: float) -> bool:
         """No question in progress, and none finished in the last `seconds`."""
         with self._lock:

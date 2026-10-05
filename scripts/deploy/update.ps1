@@ -99,6 +99,19 @@ if (-not $Force -and $current -eq $published) {
     exit 0
 }
 
+# A restart ends every answer in progress. While someone is waiting on one, the update
+# waits for the next minute - up to ten times, so an always-busy server still updates.
+$deferFile = Join-Path $Root 'data\logs\update-deferred.txt'
+$deferred = if (Test-Path $deferFile) { [int](Get-Content $deferFile -Raw) } else { 0 }
+$busy = $false
+try { $busy = (Invoke-RestMethod "http://127.0.0.1:$AppPort/api/system/busy" -TimeoutSec 5).busy } catch { }
+if ($busy -and -not $Force -and $deferred -lt 10) {
+    Set-Content -Path $deferFile -Value ($deferred + 1)
+    if ($deferred -eq 0) { Log "update to $published waiting: a question is being answered" }
+    exit 0
+}
+Remove-Item $deferFile -ErrorAction SilentlyContinue
+
 $changed = if ($current) { @(& $git diff --name-only $current $published) } else { @('requirements.txt', 'migrations/') }
 Log "updating $current -> $published ($($changed.Count) files changed)"
 & $git reset --hard --quiet "origin/$Branch"

@@ -35,6 +35,10 @@ logger = logging.getLogger(__name__)
 
 #: A second attempt after this long is a new question, not a rephrasing.
 REPHRASE_WINDOW_SECONDS = 600
+#: Share of the first question's other words the second must keep to count as the same
+#: question reworded; and the shortest word worth learning a synonym for.
+MIN_KEPT_SHARE = 0.6
+MIN_TERM_LETTERS = 3
 
 
 def _related(a: str, b: str) -> bool:
@@ -69,10 +73,17 @@ class RephraseLearner:
             k for k in before
             if not self.keyword_index.knows(k) and not any(_related(k, a) for a in after)
         ]
-        if len(unknown) != 1:
+        if len(unknown) != 1 or len(unknown[0]) < MIN_TERM_LETTERS:
+            return None
+        # The rest of the question has to stay: a second question about something else
+        # is not a rephrasing, and pairing its words with the first one's taught nonsense
+        # ("whem ≈ geralyn" from a typo followed by a different question).
+        rest = [k for k in before if k != unknown[0]]
+        kept = [k for k in rest if any(_related(k, a) for a in after)]
+        if not rest or len(kept) / len(rest) < MIN_KEPT_SHARE:
             return None
         new = [a for a in after if not any(_related(a, b) for b in before) and self.keyword_index.knows(a)]
-        if not 1 <= len(new) <= 2:
+        if not 1 <= len(new) <= 2 or any(len(n) < MIN_TERM_LETTERS for n in new):
             return None
         return unknown[0], " ".join(new)
 

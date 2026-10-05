@@ -130,8 +130,15 @@ class HybridRetriever:
 
         ranked = self.reranker.rerank(analysis, list(candidates.values()), limit=limit * 3)
         if self.enable_expansion:
-            self._expand(analysis, ranked, candidates, limit)
+            self._expand(analysis, ranked, candidates, limit, document_ids)
 
+        if document_ids:
+            # Whatever an arm added, nothing outside the documents this search was
+            # confined to survives it: the filter is also who may read what, and a
+            # passage from someone else's file must never reach an answer.
+            allowed = set(document_ids)
+            for chunk_id in [k for k, c in candidates.items() if c.document_id not in allowed]:
+                del candidates[chunk_id]
         final = self.reranker.rerank(analysis, list(candidates.values()), limit=limit)
         final = [c for c in final if c.rerank_score >= self.min_rerank_score]
         final = self._reserve_semantic_slots(analysis, candidates, final, limit)
@@ -476,6 +483,7 @@ class HybridRetriever:
         ranked: list[Candidate],
         candidates: dict[str, Candidate],
         limit: int,
+        document_ids: list[str] | None = None,
     ) -> None:
         """Add neighbouring sections and chase query terms no candidate covers yet."""
         if not ranked:
@@ -519,7 +527,9 @@ class HybridRetriever:
         uncovered = self._uncovered_terms(analysis, ranked[:limit])
         if uncovered and budget > 0:
             logger.info("Expanding retrieval for uncovered terms: %s", sorted(uncovered)[:8])
-            extra = self.keyword_index.search(" ".join(sorted(uncovered)), limit=min(budget, 12))
+            extra = self.keyword_index.search(
+                " ".join(sorted(uncovered)), limit=min(budget, 12), document_ids=document_ids
+            )
             records = self.knowledge.chunks_by_ids([chunk_id for chunk_id, _ in extra])
             for chunk_id, score in extra:
                 record = records.get(chunk_id)

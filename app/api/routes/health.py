@@ -2,11 +2,26 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
+
+from app.exceptions import AuthorizationError
 
 from app.api.deps import ContainerDep, CurrentUserDep, SettingsDep
 
 router = APIRouter(prefix="/api", tags=["system"])
+
+
+@router.get("/system/busy")
+def busy(request: Request) -> dict[str, object]:
+    """Whether anyone is waiting on an answer — asked by the update task before it
+    restarts the server, so an update never cuts a question off. Answered only to this
+    machine itself: it says nothing secret, but nobody else needs it."""
+    from app.services.activity import ACTIVITY
+
+    client = request.client.host if request.client else ""
+    if client not in ("127.0.0.1", "::1", "localhost"):
+        raise AuthorizationError("متاح من الخادم نفسه فقط.")
+    return {"busy": ACTIVITY.active > 0, "active": ACTIVITY.active}
 
 
 @router.get("/health")

@@ -122,6 +122,56 @@ def upload(service, name, text, owner) -> DocumentResponse:
         ))
 
 
+def retriever_leaks(mine: str, theirs: str) -> tuple[bool, bool]:
+    """Found live: a reader whose only file was one short image asked about payment
+    terms, the expansion step searched every document for the words her file lacked,
+    and the answer quoted another person's contract. Both halves are checked: the
+    search is confined, and anything outside the filter is dropped whatever added it."""
+    from app.core.retrieval import Candidate
+    from app.services.retriever import HybridRetriever
+
+    def chunk(chunk_id: str, document_id: str) -> Candidate:
+        return Candidate(chunk_id=chunk_id, document_id=document_id, filename=document_id,
+                         document_title="", section="s", section_id="s", heading="",
+                         parent_section="", content="payment terms", vector_score=0.9)
+
+    searched_with: list = []
+    record = SimpleNamespace(**{f: "" for f in ("filename", "document_title", "section", "section_id",
+                                                 "heading", "parent_section", "content", "version",
+                                                 "category", "language", "locator")},
+                             chunk_id="theirs-1", document_id=theirs, has_table=False, page=None)
+
+    def search(query, limit=20, document_ids=None, **_):
+        searched_with.append(document_ids)
+        return [] if document_ids and theirs not in document_ids else [("theirs-1", 3.0)]
+
+    r = HybridRetriever.__new__(HybridRetriever)
+    r.max_expanded_candidates = 40
+    r.knowledge = SimpleNamespace(chunks_in_sections=lambda *a, **k: [],
+                                  chunks_by_ids=lambda ids: {"theirs-1": record})
+    r.keyword_index = SimpleNamespace(search=search)
+    r._uncovered_terms = lambda analysis, selected: {"terms"}
+    candidates = {"mine-1": chunk("mine-1", mine)}
+    analysis = SimpleNamespace(wants_wide_retrieval=False)
+    r._expand(analysis, list(candidates.values()), candidates, 8, [mine])
+    gap_fill_leak = "theirs-1" in candidates or searched_with != [[mine]]
+
+    # Any arm at all: here the vector arm is made to ignore the filter.
+    r.top_k = r.wide_top_k = 8
+    r.min_rerank_score = -1.0
+    r.enable_keyword_search = r.enable_entity_retrieval = r.enable_expansion = False
+    r._add_vector_hits = lambda analysis, pool, category, ids: pool.update(
+        {"mine-1": chunk("mine-1", mine), "theirs-2": chunk("theirs-2", theirs)})
+    r._has_coverage = lambda analysis, pool: True
+    r._reserve_semantic_slots = lambda analysis, pool, final, limit: final
+    r.reranker = SimpleNamespace(rerank=lambda analysis, items, limit: [
+        c for c in items if setattr(c, "rerank_score", 1.0) is None][:limit])
+    full = SimpleNamespace(wants_wide_retrieval=False, needs_dated_sweep=False, question="q",
+                           intent=None, temporal=SimpleNamespace(is_temporal=False))
+    final = r.retrieve(full, document_ids=[mine])
+    return gap_fill_leak, any(c.document_id != mine for c in final)
+
+
 def main() -> int:
     init_database()
     service, keyword_index = build()
@@ -194,6 +244,12 @@ def main() -> int:
     check(has_permission("admin", Permission.DOCUMENT_DELETE), "the administrator can")
     check(has_permission("admin", Permission.DOCUMENT_READ_ALL) and not has_permission("contributor", Permission.DOCUMENT_READ_ALL),
           "only the administrator (and integrations) read every document")
+
+    print("\n=== 7. no search step reaches past the reader's documents ===")
+    gap_fill_leak, leaked_by_arm = retriever_leaks(a.id, b.id)
+    check(not gap_fill_leak, "the gap-filling keyword search keeps to the reader's documents",
+          "it searched every document — a small file let someone else's passages in")
+    check(not leaked_by_arm, "a passage another arm brought in from outside the filter is dropped")
 
     service._executor.shutdown(wait=True)
     print()
