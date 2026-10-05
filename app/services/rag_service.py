@@ -315,7 +315,7 @@ class RagService:
         """
         started = time.perf_counter()
         # Background jobs that need the model wait while anyone is waiting on an answer.
-        ACTIVITY.begin()
+        ticket = ACTIVITY.begin()
         try:
             response = self._remembered(request, user)
             if response is None:
@@ -329,7 +329,7 @@ class RagService:
                 )
             raise
         finally:
-            ACTIVITY.end()
+            ACTIVITY.end(ticket)
         if self.metrics is not None:
             self.metrics.record(
                 channel, request.question, response, self._elapsed_ms(started), user

@@ -41,7 +41,7 @@ export function ChatPage() {
   const updateMessage = useConversations((state) => state.updateMessage)
   const dropMessagesFrom = useConversations((state) => state.dropMessagesFrom)
 
-  const { pending, stages, ask, stop } = useAsk()
+  const { pending, stages, load, startedAt, ask, stop } = useAsk()
   const stats = useLibraryStats()
   const composerRef = useRef<HTMLTextAreaElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -212,7 +212,7 @@ export function ChatPage() {
               ),
             )}
 
-            {pending && <StageIndicator stages={stages} />}
+            {pending && <StageIndicator stages={stages} load={load} startedAt={startedAt} />}
           </div>
         </div>
 

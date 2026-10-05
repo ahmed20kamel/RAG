@@ -24,6 +24,7 @@ from app.core.permissions import Permission
 from app.models.auth import User
 from app.models.database import SessionLocal
 from app.schemas.chat import ChatRequest
+from app.services.activity import ACTIVITY
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +123,18 @@ async def chat_stream(
                 root.removeHandler(collector)
                 loop.call_soon_threadsafe(events.put_nowait, None)
 
+        # The questions already being answered when this one arrived are the ones it
+        # waits behind: the model answers one at a time. Said up front, and again as
+        # each of them finishes, so a busy moment reads as a queue, not a hang.
+        ahead_of = ACTIVITY.snapshot()
+
+        def load(ahead: int) -> str:
+            return json.dumps({
+                "type": "load", "ahead": ahead, "wait_seconds": ACTIVITY.estimate_wait(ahead),
+            }) + "\n"
+
+        ahead = len(ahead_of)
+        yield load(ahead)
         worker = loop.run_in_executor(None, work)
         while True:
             try:
@@ -131,7 +144,12 @@ async def chat_stream(
                 # silent connection is dropped by proxies — the public tunnel cuts one
                 # after 100 seconds — and the reader is left waiting on an answer that
                 # can no longer arrive. A line every few seconds keeps it open.
-                yield json.dumps({"type": "ping"}) + "\n"
+                now_ahead = ACTIVITY.still_running(ahead_of)
+                if now_ahead != ahead:
+                    ahead = now_ahead
+                    yield load(ahead)
+                else:
+                    yield json.dumps({"type": "ping"}) + "\n"
                 continue
             if event is None:
                 break

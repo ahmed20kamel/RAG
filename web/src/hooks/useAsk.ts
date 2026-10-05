@@ -1,12 +1,16 @@
 import { useCallback, useRef, useState } from 'react'
 import { chatApi } from '@/services/chat'
 import { ApiError } from '@/services/client'
-import type { ChatRequest, ChatResponse, ChatStage } from '@/types/api'
+import type { ChatLoad, ChatRequest, ChatResponse, ChatStage } from '@/types/api'
 
 export interface AskState {
   pending: boolean
   /** Stages the backend has reported for the request in flight, in arrival order. */
   stages: ChatStage[]
+  /** How busy the server was for this request: questions ahead and the expected wait. */
+  load: ChatLoad | null
+  /** When the request in flight was sent. */
+  startedAt: number | null
   ask: (request: ChatRequest) => Promise<ChatResponse | null>
   stop: () => void
 }
@@ -28,6 +32,8 @@ export class StoppedError extends Error {
 export function useAsk(): AskState {
   const [pending, setPending] = useState(false)
   const [stages, setStages] = useState<ChatStage[]>([])
+  const [load, setLoad] = useState<ChatLoad | null>(null)
+  const [startedAt, setStartedAt] = useState<number | null>(null)
   const controller = useRef<AbortController | null>(null)
 
   const stop = useCallback(() => {
@@ -35,6 +41,8 @@ export function useAsk(): AskState {
     controller.current = null
     setPending(false)
     setStages([])
+    setLoad(null)
+    setStartedAt(null)
   }, [])
 
   const ask = useCallback(async (request: ChatRequest) => {
@@ -42,6 +50,8 @@ export function useAsk(): AskState {
     const abort = new AbortController()
     controller.current = abort
     setStages([])
+    setLoad(null)
+    setStartedAt(Date.now())
     setPending(true)
 
     let answer: ChatResponse | null = null
@@ -54,6 +64,8 @@ export function useAsk(): AskState {
           if (event.type === 'stage') setStages((current) => [...current, event.stage])
           else if (event.type === 'result') answer = event.response
           else if (event.type === 'error') failure = event.detail
+          else if (event.type === 'load')
+            setLoad({ ahead: event.ahead, waitSeconds: event.wait_seconds, at: Date.now() })
           // 'ping' only keeps the connection open while the model writes.
         },
         abort.signal,
@@ -71,11 +83,13 @@ export function useAsk(): AskState {
       if (controller.current === abort) controller.current = null
       setPending(false)
       setStages([])
+      setLoad(null)
+      setStartedAt(null)
     }
 
     if (failure) throw new ApiError(failure, 500, 'PipelineError')
     return answer
   }, [])
 
-  return { pending, stages, ask, stop }
+  return { pending, stages, load, startedAt, ask, stop }
 }

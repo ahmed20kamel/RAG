@@ -191,6 +191,15 @@ export type ChatStreamEvent =
   | { type: 'error'; detail: string }
   /** Keep-alive while the model writes; carries nothing. */
   | { type: 'ping' }
+  /** Questions answered before this one, and the estimated seconds until its answer. */
+  | { type: 'load'; ahead: number; wait_seconds: number }
+
+export interface ChatLoad {
+  ahead: number
+  waitSeconds: number
+  /** When the estimate was received, so the interface can count it down. */
+  at: number
+}
 
 export interface DocumentResponse {
   id: string

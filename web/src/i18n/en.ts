@@ -148,6 +148,16 @@ export const en: Dictionary = {
     completing: 'Filling the gaps',
     done: 'Done',
   },
+  load: {
+    queued: 'The system is busy: {{count}} question(s) ahead of yours. Yours starts automatically as soon as they finish.',
+    wait: 'Expected wait: about {{time}}.',
+    slow: 'This answer is taking longer than usual because of heavy use — still working on it.',
+    keepOpen: 'Keep this page open; the answer will appear here.',
+    elapsed: '{{time}} elapsed',
+    seconds: '{{n}} s',
+    minutes: '{{n}} min',
+    lessThanMinute: 'under a minute',
+  },
   answer: {
     model: 'Model',
     latency: 'Latency',

@@ -575,6 +575,45 @@
   font-weight: var(--weight-medium);
 }
 
+.stage-track__elapsed {
+  margin-inline-start: auto;
+  font-size: var(--text-2xs);
+  font-weight: normal;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Busy-server notice: the queue position and expected wait. */
+.load-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-block-end: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-lg);
+  background: var(--warning-soft);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  max-inline-size: 34rem;
+}
+
+.load-notice > svg {
+  flex: none;
+  margin-block-start: 0.2em;
+  color: var(--warning);
+}
+
+.load-notice p {
+  margin: 0;
+}
+
+.load-notice__hint {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
 /* Answer details ---------------------------------------------------------- */
 .answer-details {
   inline-size: 100%;
