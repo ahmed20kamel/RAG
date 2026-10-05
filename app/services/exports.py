@@ -153,14 +153,15 @@ class ExportService:
             label = source.filename + (f" — {source.locator}" if getattr(source, "locator", "") else "")
             if label not in names:
                 names.append(label)
+        file_id = self.store.new_id()
         content = Content(
+            reference=f"KB-{datetime.now():%y%m%d}-{file_id[:6].upper()}",
             title=title.strip() or "ملف",
             blocks=parse(markdown, keep_citations=wanted.format != "xlsx"),
             sources=names,
             evidence=evidence if evidence is not None else self._evidence(sources),
             author=getattr(user, "display_name", "") or getattr(user, "email", ""),
         )
-        file_id = self.store.new_id()
         path = self.store.path_for(user.id, file_id, wanted.format)
         unsupported = 0
         if wanted.format == "pdf":

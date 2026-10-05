@@ -135,6 +135,8 @@ class Content:
     evidence: str = ""
     author: str = ""
     note: str = ""
+    #: Printed on the file, so a copy can be traced back to its request.
+    reference: str = ""
 
 
 _TABLE_ROW = re.compile(r"^\s*\|(.+)\|\s*$")
@@ -174,7 +176,11 @@ def parse(markdown: str, keep_citations: bool = True) -> list[Block]:
             line = _CITATION.sub("", line)
         heading = re.match(r"^\s*(#{1,4})\s+(.*)$", line)
         bullet = re.match(r"^\s*(?:[-*•]|\d+[.)])\s+(.*)$", line)
-        if heading:
+        lead = re.match(r"^\s*\*\*(.+)\*\*\s*(\[[\d,،\s\]\[]*\])?\s*[.。]?\s*$", line)
+        if lead and not blocks:
+            # The answer's own first line, written in bold: the direct answer.
+            blocks.append(Block("lead", plain(lead.group(1))))
+        elif heading:
             blocks.append(Block("heading", plain(heading.group(2)), level=len(heading.group(1))))
         elif bullet:
             blocks.append(Block("bullet", plain(bullet.group(1))))
@@ -216,135 +222,18 @@ def _is_arabic(text: str) -> bool:
 
 
 def render_pdf(content: Content, path: Path) -> None:
-    from fpdf import FPDF
-    from fpdf.fonts import FontFace
+    from app.services.file_render import render_pdf as branded
 
-    rtl = _is_arabic(content.title + " ".join(b.text for b in content.blocks[:5]))
-    align = "R" if rtl else "L"
-    pdf = FPDF(format="A4")
-    pdf.set_auto_page_break(auto=True, margin=16)
-    regular, bold = FONT_DIR / "tahoma.ttf", FONT_DIR / "tahomabd.ttf"
-    if not regular.exists():
-        regular = bold = FONT_DIR / "arial.ttf"
-    pdf.add_font("body", "", str(regular))
-    pdf.add_font("body", "B", str(bold if bold.exists() else regular))
-    pdf.set_text_shaping(use_shaping_engine=True, direction="rtl" if rtl else "ltr",
-                         script="arab" if rtl else None, language="ar" if rtl else None)
-    pdf.set_footer = None
-    pdf.add_page()
-    pdf.set_font("body", "B", 16)
-    pdf.multi_cell(0, 9, content.title, align=align, new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("body", "", 9)
-    pdf.set_text_color(110, 110, 110)
-    stamp = f"{datetime.now():%Y-%m-%d %H:%M}" + (f" — {content.author}" if content.author else "")
-    pdf.multi_cell(0, 6, stamp, align=align, new_x="LMARGIN", new_y="NEXT")
-    pdf.set_text_color(0, 0, 0)
-    pdf.ln(3)
-
-    for block in content.blocks:
-        if block.kind == "heading":
-            pdf.ln(2)
-            pdf.set_font("body", "B", 14 if block.level <= 2 else 12)
-            pdf.multi_cell(0, 8, block.text, align=align, new_x="LMARGIN", new_y="NEXT")
-        elif block.kind == "paragraph":
-            pdf.set_font("body", "", 11)
-            pdf.multi_cell(0, 7, block.text, align=align, new_x="LMARGIN", new_y="NEXT")
-        elif block.kind == "bullet":
-            pdf.set_font("body", "", 11)
-            pdf.multi_cell(0, 7, (f"{block.text} •" if False else f"• {block.text}"), align=align,
-                           new_x="LMARGIN", new_y="NEXT")
-        elif block.kind == "table" and block.rows:
-            pdf.ln(1)
-            pdf.set_font("body", "", 9)
-            width = max(len(r) for r in block.rows)
-            rows = [r + [""] * (width - len(r)) for r in block.rows]
-            # Right-to-left: the first column belongs on the right.
-            rows = [list(reversed(r)) for r in rows] if rtl else rows
-            with pdf.table(text_align="RIGHT" if rtl else "LEFT", line_height=6,
-                           headings_style=FontFace(emphasis="BOLD", fill_color=(235, 238, 245))) as table:
-                for row in rows:
-                    cells = table.row()
-                    for cell in row:
-                        cells.cell(cell)
-            pdf.ln(2)
-
-    if content.note:
-        pdf.ln(2)
-        pdf.set_font("body", "", 9)
-        pdf.set_text_color(150, 95, 0)
-        pdf.multi_cell(0, 6, content.note, align=align, new_x="LMARGIN", new_y="NEXT")
-        pdf.set_text_color(0, 0, 0)
-    if content.sources:
-        pdf.ln(3)
-        pdf.set_font("body", "B", 11)
-        pdf.multi_cell(0, 7, "المصادر" if rtl else "Sources", align=align, new_x="LMARGIN", new_y="NEXT")
-        pdf.set_font("body", "", 9)
-        for index, source in enumerate(content.sources, 1):
-            pdf.multi_cell(0, 6, f"[{index}] {source}", align=align, new_x="LMARGIN", new_y="NEXT")
-    pdf.output(str(path))
+    branded(content, path, rtl=_is_arabic(content.title + " ".join(b.text for b in content.blocks[:5])),
+            reference=content.reference)
 
 
 def render_docx(content: Content, path: Path) -> None:
-    from docx import Document as Docx
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from docx.oxml.ns import qn
-    from docx.oxml import OxmlElement
-    from docx.shared import Pt, RGBColor
+    from app.services.file_render import render_docx as branded
 
-    rtl = _is_arabic(content.title + " ".join(b.text for b in content.blocks[:5]))
-    document = Docx()
-    style = document.styles["Normal"]
-    style.font.name = "Tahoma"
-    style.font.size = Pt(11)
-    style.element.rPr.rFonts.set(qn("w:cs"), "Tahoma")
+    branded(content, path, rtl=_is_arabic(content.title + " ".join(b.text for b in content.blocks[:5])),
+            reference=content.reference)
 
-    def direct(paragraph) -> None:
-        if not rtl:
-            return
-        properties = paragraph._p.get_or_add_pPr()
-        properties.append(OxmlElement("w:bidi"))
-        paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        for run in paragraph.runs:
-            run_properties = run._r.get_or_add_rPr()
-            run_properties.append(OxmlElement("w:rtl"))
-
-    direct(document.add_heading(content.title, level=0))
-    stamp = document.add_paragraph(f"{datetime.now():%Y-%m-%d %H:%M}" + (f" — {content.author}" if content.author else ""))
-    stamp.runs[0].font.color.rgb = RGBColor(110, 110, 110)
-    direct(stamp)
-    for block in content.blocks:
-        if block.kind == "heading":
-            direct(document.add_heading(block.text, level=min(3, max(1, block.level))))
-        elif block.kind == "paragraph":
-            direct(document.add_paragraph(block.text))
-        elif block.kind == "bullet":
-            direct(document.add_paragraph(block.text, style="List Bullet"))
-        elif block.kind == "table" and block.rows:
-            width = max(len(r) for r in block.rows)
-            table = document.add_table(rows=0, cols=width)
-            table.style = "Light Grid Accent 1"
-            if rtl:
-                table_properties = table._tbl.tblPr
-                bidi = OxmlElement("w:bidiVisual")
-                table_properties.append(bidi)
-            for index, row in enumerate(block.rows):
-                cells = table.add_row().cells
-                for column, value in enumerate(row + [""] * (width - len(row))):
-                    cells[column].text = value
-                    for paragraph in cells[column].paragraphs:
-                        direct(paragraph)
-                        if index == 0:
-                            for run in paragraph.runs:
-                                run.bold = True
-    if content.note:
-        note = document.add_paragraph(content.note)
-        note.runs[0].font.color.rgb = RGBColor(150, 95, 0)
-        direct(note)
-    if content.sources:
-        direct(document.add_heading("المصادر" if rtl else "Sources", level=2))
-        for index, source in enumerate(content.sources, 1):
-            direct(document.add_paragraph(f"[{index}] {source}"))
-    document.save(str(path))
 
 
 def render_xlsx(content: Content, path: Path) -> int:
@@ -354,6 +243,8 @@ def render_xlsx(content: Content, path: Path) -> int:
     from openpyxl.comments import Comment
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
+
+    from app.services.file_render import style_sheet
 
     rtl = _is_arabic(content.title + " ".join(b.text for b in content.blocks[:5]))
     workbook = Workbook()
@@ -368,7 +259,7 @@ def render_xlsx(content: Content, path: Path) -> int:
     if not tables:
         rows = [["البند" if rtl else "Item", "التفاصيل" if rtl else "Details"]]
         for block in content.blocks:
-            if block.kind in ("paragraph", "bullet", "heading"):
+            if block.kind in ("lead", "paragraph", "bullet", "heading"):
                 label, sep, value = block.text.partition(":")
                 rows.append([label.strip(), value.strip()] if sep and len(label) <= 60 else [block.text, ""])
         tables = [rows]
@@ -380,23 +271,19 @@ def render_xlsx(content: Content, path: Path) -> int:
         except ValueError:
             return None
 
+    zebra = PatternFill("solid", fgColor="F9FAFC")
     for index, rows in enumerate(tables, 1):
         sheet = workbook.create_sheet(title=(f"جدول {index}" if rtl else f"Table {index}")[:31])
-        sheet.sheet_view.rightToLeft = rtl
-        sheet.append([content.title])
-        sheet["A1"].font = Font(bold=True, size=14)
-        sheet.append([f"{datetime.now():%Y-%m-%d %H:%M}"])
-        sheet["A2"].font = Font(color="808080", size=9)
-        sheet.append([])
         width = max(len(r) for r in rows)
-        start = sheet.max_row + 1
+        start = style_sheet(sheet, content.title, content.author, content.reference, rtl, width)
         for row_index, row in enumerate(rows):
             values = row + [""] * (width - len(row))
-            sheet.append([number(v) if row_index and number(v) is not None else v for v in values])
+            line = start + row_index
             for column, value in enumerate(values, 1):
-                cell = sheet.cell(row=sheet.max_row, column=column)
+                parsed = number(value) if row_index else None
+                cell = sheet.cell(row=line, column=column, value=parsed if parsed is not None else value)
                 cell.border = border
-                cell.alignment = Alignment(wrap_text=True, vertical="top",
+                cell.alignment = Alignment(wrap_text=True, vertical="center",
                                            horizontal="right" if rtl else "left")
                 if row_index == 0:
                     cell.font = Font(bold=True, color="FFFFFF")
@@ -406,21 +293,29 @@ def render_xlsx(content: Content, path: Path) -> int:
                     cell.comment = Comment("لم يُعثر على هذا الرقم في المصادر — راجعه." if rtl
                                            else "Not found in the sources — check it.", "RAG")
                     unsupported += 1
+                elif row_index % 2 == 0:
+                    cell.fill = zebra
                 if isinstance(cell.value, float):
                     cell.number_format = "#,##0.##"
+            sheet.row_dimensions[line].height = 22 if row_index == 0 else None
         sheet.freeze_panes = sheet.cell(row=start + 1, column=1)
+        sheet.auto_filter.ref = f"A{start}:{get_column_letter(width)}{start + len(rows) - 1}"
         for column in range(1, width + 1):
             longest = max((len(str(r[column - 1])) if column - 1 < len(r) else 0) for r in rows)
-            sheet.column_dimensions[get_column_letter(column)].width = min(60, max(10, longest + 2))
+            sheet.column_dimensions[get_column_letter(column)].width = min(60, max(12, longest + 3))
 
     if content.sources or content.note:
         sheet = workbook.create_sheet(title="المصادر" if rtl else "Sources")
-        sheet.sheet_view.rightToLeft = rtl
+        line = style_sheet(sheet, "المصادر" if rtl else "Sources", content.author, content.reference, rtl, 2)
         if content.note:
-            sheet.append([content.note])
+            sheet.cell(row=line, column=1, value=content.note).font = Font(color="7A5200")
+            line += 2
         for index, source in enumerate(content.sources, 1):
-            sheet.append([f"[{index}]", source])
-        sheet.column_dimensions["B"].width = 80
+            sheet.cell(row=line, column=1, value=f"[{index}]").font = Font(bold=True, color="1F3A5F")
+            sheet.cell(row=line, column=2, value=source)
+            line += 1
+        sheet.column_dimensions["A"].width = 8
+        sheet.column_dimensions["B"].width = 90
     workbook.save(str(path))
     return unsupported
 

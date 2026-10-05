@@ -97,7 +97,11 @@ def main() -> int:
 
         document = Document(str(docx))
         paragraphs = " ".join(p.text for p in document.paragraphs)
-        check("أسعار الدهان" in paragraphs and len(document.tables) == 1, "the Word file holds the text and the table")
+        table_text = [c.text for t in document.tables for r in t.rows for c in r.cells]
+        check("أسعار الدهان" in paragraphs and "دهان داخلي" in table_text,
+              "the Word file holds the text and the table")
+        check(any("ال يافور" in p.text for p in document.sections[0].header.paragraphs),
+              "every page carries the company's name in its header")
         check(document.paragraphs[0]._p.pPr is not None and document.paragraphs[0]._p.pPr.find(
             "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}bidi") is not None,
               "Word paragraphs are right-to-left")
