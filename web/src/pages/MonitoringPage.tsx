@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   Badge,
+  Button,
   Card,
   CardHeader,
   EmptyState,
@@ -69,6 +70,26 @@ function NightlyReportCard() {
   )
 }
 
+/** Checked when asked: every document processed and indexed for meaning and words. */
+function IndexHealthCard() {
+  const { t } = useTranslation()
+  const health = useQuery({ queryKey: ['monitoring', 'index-health'], queryFn: monitoringApi.indexHealth, staleTime: 60_000 })
+  const markdown = (health.data?.markdown ?? '').replace(/^## .*\n+/, '')
+  return (
+    <Card padded>
+      <CardHeader
+        title={t('monitor.indexHealth')}
+        action={
+          <Button variant="secondary" size="sm" icon="refresh" disabled={health.isFetching} onClick={() => void health.refetch()}>
+            {health.isFetching ? t('monitor.indexChecking') : t('monitor.indexCheck')}
+          </Button>
+        }
+      />
+      {markdown && <div className="monitor-report" dangerouslySetInnerHTML={{ __html: renderMarkdown(markdown).html }} />}
+    </Card>
+  )
+}
+
 function Content({ data }: { data: MonitoringResponse }) {
   const { t, language } = useTranslation()
   const { components, traffic } = data
@@ -90,6 +111,7 @@ function Content({ data }: { data: MonitoringResponse }) {
         </section>
       )}
 
+      <IndexHealthCard />
       <NightlyReportCard />
 
       <div className="monitor-grid">

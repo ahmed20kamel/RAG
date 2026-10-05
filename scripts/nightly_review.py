@@ -24,7 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from sqlalchemy import select  # noqa: E402
+from sqlalchemy import func, select  # noqa: E402
 
 from app.config import get_settings  # noqa: E402
 from app.core.domain import TERMINAL_FAILURES  # noqa: E402
@@ -166,6 +166,14 @@ def main() -> int:
     except Exception as exc:  # noqa: BLE001 - the report is still worth writing
         organized = [f"- تعذّر تشغيل التصنيف: {exc}"]
     text = report(args.hours, organized)
+    try:
+        from app.config import get_settings
+        from app.container import Container
+        from app.services.index_health import index_health
+
+        text += "\n\n" + "\n".join(index_health(Container(get_settings()))) + "\n"
+    except Exception as exc:  # noqa: BLE001 - the rest of the report still stands
+        text += f"\n## صحة الفهرسة\n\n- تعذّر الفحص: {exc}\n"
     REPORTS.mkdir(parents=True, exist_ok=True)
     (REPORTS / f"report-{datetime.now():%Y-%m-%d}.md").write_text(text, encoding="utf-8")
     (REPORTS / "latest.md").write_text(text, encoding="utf-8")

@@ -777,6 +777,9 @@ export const en: Dictionary = {
   },
   monitor: {
     nightly: 'Nightly report',
+    indexHealth: 'Index health now',
+    indexCheck: 'Check now',
+    indexChecking: 'Checking…',
     nightlyEmpty: 'No report yet. One is written every night at 2:30.',
     title: 'Monitoring',
     adminOnly: 'This page is for administrators.',

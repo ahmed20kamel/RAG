@@ -129,6 +129,15 @@ def latest_report(_user: User = require(Permission.SYSTEM_MONITOR)) -> dict:
     return {"written_at": written, "markdown": latest.read_text(encoding="utf-8")}
 
 
+@router.get("/admin/index-health")
+def index_health_now(container: ContainerDep, _user: User = require(Permission.SYSTEM_MONITOR)) -> dict:
+    """Checked now: every document processed, cut into passages, and indexed for both
+    meaning and words. Seconds on this corpus; asked for, not polled."""
+    from app.services.index_health import index_health
+
+    return {"markdown": "\n".join(index_health(container))}
+
+
 @router.get("/admin/monitoring")
 def monitoring(
     container: ContainerDep,

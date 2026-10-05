@@ -83,4 +83,5 @@ export interface NightlyReport {
 export const monitoringApi = {
   get: (days: number) => api.get<MonitoringResponse>(`/api/admin/monitoring?days=${days}`),
   latestReport: () => api.get<NightlyReport>('/api/admin/reports/latest'),
+  indexHealth: () => api.get<{ markdown: string }>('/api/admin/index-health'),
 }

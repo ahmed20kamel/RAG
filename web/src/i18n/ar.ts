@@ -783,6 +783,9 @@ export const ar = {
   },
   monitor: {
     nightly: 'تقرير الليلة',
+    indexHealth: 'صحة الفهرسة الآن',
+    indexCheck: 'افحص الآن',
+    indexChecking: 'يفحص…',
     nightlyEmpty: 'لم يُكتب تقرير بعد. يُكتب كل ليلة الساعة 2:30.',
     title: 'المراقبة',
     adminOnly: 'هذه الصفحة للمسؤولين فقط.',
