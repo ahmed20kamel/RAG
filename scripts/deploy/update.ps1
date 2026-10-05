@@ -117,6 +117,18 @@ Log "updating $current -> $published ($($changed.Count) files changed)"
 & $git reset --hard --quiet "origin/$Branch"
 Apply $changed
 
+# One-time data repairs travel with the code too. Each runs once; its marker is written
+# only when it succeeded, so a failed run is tried again on the next update.
+$repair = Join-Path $Root 'scripts\fix_legacy_data.py'
+$repairDone = Join-Path $Root 'data\logs\legacy-fix-done.txt'
+if ((Test-Path $repair) -and -not (Test-Path $repairDone)) {
+    Push-Location $Root
+    & cmd /c "`"$py`" `"$repair`" --apply >> `"$(Join-Path $Root 'data\logs\legacy_fix.log')`" 2>&1"
+    if ($LASTEXITCODE -eq 0) { Set-Content -Path $repairDone -Value (Get-Date -Format 's'); Log '  legacy data repaired (see data\reports\legacy_fix.md)' }
+    else { Log "  legacy data repair failed (exit $LASTEXITCODE) - see data\logs\legacy_fix.log" }
+    Pop-Location
+}
+
 if (Restart-Server) {
     Log "  running $published"
     exit 0
