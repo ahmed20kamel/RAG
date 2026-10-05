@@ -4,6 +4,7 @@ import { cx } from '@/utils/cx'
 import { Icon } from '@/components/ui/Icon'
 import { AnswerDetails } from './AnswerDetails'
 import { CorrectAnswerDialog } from './CorrectAnswerDialog'
+import { ExportMenu } from './ExportMenu'
 import { FileCards } from './FileCards'
 import { LearningPrompt, TeachFromChatDialog } from './LearningPrompt'
 import { SourceList, WebSourceList } from './SourceCard'
@@ -14,7 +15,7 @@ import { useCopy } from '@/hooks/useCopy'
 import { renderMarkdown, markdownToPlainText } from '@/utils/markdown'
 import { toast } from '@/state/toasts'
 import type { ChatMessage, Feedback } from '@/state/conversations'
-import type { SourceReference } from '@/types/api'
+import type { ChatFile, SourceReference } from '@/types/api'
 
 export function UserMessage({ message }: { message: ChatMessage }) {
   return (
@@ -34,12 +35,18 @@ export function AssistantMessage({
   onRegenerate,
   onFeedback,
   onChoose,
+  question,
+  onFiles,
 }: {
   message: ChatMessage
   onRegenerate?: () => void
   onFeedback?: (feedback: Feedback) => void
   /** Sends one of the answer's offered choices as the next question. */
   onChoose?: (question: string) => void
+  /** The question this answers — the title of a file made from it. */
+  question?: string
+  /** Files made from this answer, kept with the message. */
+  onFiles?: (files: ChatFile[]) => void
 }) {
   const { t, language } = useTranslation()
   const { copied, copy } = useCopy()
@@ -155,6 +162,14 @@ export function AssistantMessage({
           />
           {onRegenerate && (
             <IconButton icon="refresh" label={t('chat.regenerate')} size="sm" onClick={onRegenerate} />
+          )}
+          {response && response.grounded && onFiles && (response.files?.length ?? 0) === 0 && (
+            <ExportMenu
+              title={(question || t('chat.title')).replace(/[؟?]+$/, '')}
+              markdown={message.content}
+              response={response}
+              onMade={onFiles}
+            />
           )}
           {answerId && (
             <IconButton

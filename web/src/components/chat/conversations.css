@@ -1,0 +1,128 @@
+/* Conversation sidebar ---------------------------------------------------- */
+.conv-sidebar {
+  inline-size: 17rem;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-3);
+  border-inline-end: 1px solid var(--border);
+  background: var(--surface);
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.conv-sidebar__top {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.conv-sidebar__tabs {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.conv-sidebar__tab {
+  flex: 1;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+}
+
+.conv-sidebar__tab.is-active {
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+}
+
+.conv-sidebar__list {
+  flex: 1;
+  min-block-size: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.conv-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  border-radius: var(--radius-md);
+  padding-inline-end: var(--space-1);
+  transition: background var(--duration-fast) var(--ease);
+}
+
+.conv-row:hover {
+  background: var(--surface-hover);
+}
+
+.conv-row--active {
+  background: var(--accent-soft);
+}
+
+.conv-row__main {
+  flex: 1;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+  padding: var(--space-2) var(--space-3);
+  text-align: start;
+}
+
+.conv-row__title {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conv-row--active .conv-row__title {
+  color: var(--accent-text);
+  font-weight: var(--weight-medium);
+}
+
+.conv-row__meta {
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+}
+
+.conv-row__actions {
+  display: flex;
+  gap: 0.125rem;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease);
+}
+
+.conv-row:hover .conv-row__actions,
+.conv-row:focus-within .conv-row__actions {
+  opacity: 1;
+}
+
+/* In the app's one sidebar: no frame of its own, it fills the space between the brand
+   and the system's links, and only its list scrolls. */
+.conv-sidebar--rail {
+  inline-size: auto;
+  flex: 1;
+  min-block-size: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.conv-sidebar__group {
+  margin: var(--space-3) var(--space-2) var(--space-1);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  color: var(--text-tertiary);
+}
+
+.conv-sidebar--rail .conv-sidebar__list > div:first-child .conv-sidebar__group {
+  margin-block-start: 0;
+}

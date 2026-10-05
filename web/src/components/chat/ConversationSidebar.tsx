@@ -6,8 +6,20 @@ import { useTranslation } from '@/hooks/useTranslation'
 import { useDebounced } from '@/hooks/useDebounced'
 import { useConversations, type Conversation } from '@/state/conversations'
 import { formatRelative } from '@/utils/format'
+import './conversations.css'
 
-export function ConversationSidebar({ onSelect }: { onSelect?: () => void }) {
+/** Today, yesterday, this week, earlier — the way a long history is scanned. */
+function dayGroup(timestamp: number): 'today' | 'yesterday' | 'week' | 'earlier' {
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  const day = 86_400_000
+  if (timestamp >= start.getTime()) return 'today'
+  if (timestamp >= start.getTime() - day) return 'yesterday'
+  if (timestamp >= start.getTime() - 6 * day) return 'week'
+  return 'earlier'
+}
+
+export function ConversationSidebar({ onSelect, variant = 'panel' }: { onSelect?: () => void; variant?: 'panel' | 'rail' }) {
   const { t, language } = useTranslation()
   const [term, setTerm] = useState('')
   const [showArchived, setShowArchived] = useState(false)
@@ -36,11 +48,11 @@ export function ConversationSidebar({ onSelect }: { onSelect?: () => void }) {
   const archivedCount = conversations.filter((c) => c.archived).length
 
   return (
-    <aside className="conv-sidebar">
+    <aside className={cx('conv-sidebar', variant === 'rail' && 'conv-sidebar--rail')}>
       <div className="conv-sidebar__top">
         <Button
-          variant="primary"
-          icon="plus"
+          variant={variant === 'rail' ? 'secondary' : 'primary'}
+          icon="pen"
           block
           onClick={() => {
             create()
@@ -79,9 +91,12 @@ export function ConversationSidebar({ onSelect }: { onSelect?: () => void }) {
         {visible.length === 0 ? (
           <EmptyState icon="chat" title={t('chat.noConversations')} />
         ) : (
-          visible.map((conversation) => (
+          visible.map((conversation, index) => (
+            <div key={conversation.id}>
+            {(index === 0 || dayGroup(visible[index - 1].updatedAt) !== dayGroup(conversation.updatedAt)) && (
+              <p className="conv-sidebar__group">{t(`chat.group.${dayGroup(conversation.updatedAt)}`)}</p>
+            )}
             <ConversationRow
-              key={conversation.id}
               conversation={conversation}
               active={conversation.id === activeId}
               relative={formatRelative(conversation.updatedAt, language)}
@@ -94,6 +109,7 @@ export function ConversationSidebar({ onSelect }: { onSelect?: () => void }) {
               archiveLabel={conversation.archived ? t('chat.unarchive') : t('chat.archive')}
               deleteLabel={t('chat.deleteConversation')}
             />
+            </div>
           ))
         )}
       </div>

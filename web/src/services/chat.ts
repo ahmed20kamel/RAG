@@ -33,6 +33,10 @@ export const chatApi = {
     return api.post<{ text: string }>('/api/chat/transcribe', form)
   },
 
+  /** An answer on the screen, made into a branded file. */
+  exportAnswer: (body: { format: 'pdf' | 'docx' | 'xlsx'; title: string; markdown: string; sources: unknown[] }) =>
+    api.post<{ files: ChatFile[]; note: string }>('/api/chat/export', body),
+
   /** Downloads a file made for this reader, under the name it was made with. */
   downloadFile: async (file: ChatFile) => {
     const response = await fetch(`${API_BASE}/api/chat/files/${file.id}`, { credentials: 'include' })

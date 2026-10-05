@@ -1,14 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Composer } from '@/components/chat/Composer'
-import { ConversationSidebar } from '@/components/chat/ConversationSidebar'
 import { AssistantMessage, UserMessage } from '@/components/chat/Message'
 import { StageIndicator } from '@/components/chat/StageIndicator'
 import { EmptyState, IconButton, Skeleton } from '@/components/ui/primitives'
-import { Icon } from '@/components/ui/Icon'
+import { Icon, type IconName } from '@/components/ui/Icon'
+import { useCurrentUser } from '@/hooks/useAuth'
 import { useAsk, StoppedError } from '@/hooks/useAsk'
 import { useHotkeys } from '@/hooks/useHotkeys'
-import { useIsTablet } from '@/hooks/useMediaQuery'
 import { useTranslation } from '@/hooks/useTranslation'
 import { useLibraryStats } from '@/hooks/useDocuments'
 import { chatApi } from '@/services/chat'
@@ -18,22 +17,30 @@ import { newId, useConversations, type ChatMessage, type Feedback } from '@/stat
 import type { ChatPicture } from '@/types/api'
 import '@/components/chat/chat.css'
 
-const EXAMPLES_AR = [
-  'ما أهم بنود العقد المتعلقة بالتأخير؟',
-  'من هم أطراف النزاع وما دور كل طرف؟',
-  'اذكر التسلسل الزمني للأحداث بالتواريخ',
+interface Starter {
+  icon: IconName
+  title: string
+  hint: string
+  prompt: string
+}
+
+/** What people most often come for: figures, deadlines, a spreadsheet, an assessment. */
+const STARTERS_AR: Starter[] = [
+  { icon: 'database', title: 'القيم والمبالغ', hint: 'قيمة العقد وشروط الدفع', prompt: 'ما قيمة العقد وما شروط الدفع؟' },
+  { icon: 'clock', title: 'المدد والتأخير', hint: 'مدة التنفيذ وغرامات التأخير', prompt: 'ما مدة التنفيذ وغرامة التأخير؟' },
+  { icon: 'layers', title: 'جدول Excel', hint: 'جدول الدفعات جاهز للتحميل', prompt: 'اعمل ملف اكسيل بجدول الدفعات في العقد' },
+  { icon: 'shield', title: 'تحليل الموقف', hint: 'الوقائع والمخاطر والتوصيات', prompt: 'حلّل موقفنا في هذا الملف: الوقائع الثابتة، نقاط القوة، المخاطر، والتوصيات' },
 ]
-const EXAMPLES_EN = [
-  'What are the key delay provisions in the contract?',
-  'Who are the parties and what role does each play?',
-  'List the sequence of events with dates',
+const STARTERS_EN: Starter[] = [
+  { icon: 'database', title: 'Values and amounts', hint: 'Contract value and payment terms', prompt: 'What is the contract value and what are the payment terms?' },
+  { icon: 'clock', title: 'Durations and delay', hint: 'Execution period and delay penalties', prompt: 'What is the execution period and the delay penalty?' },
+  { icon: 'layers', title: 'Excel table', hint: 'The payment schedule, ready to download', prompt: 'make an excel file with the payment schedule in the contract' },
+  { icon: 'shield', title: 'Assess our position', hint: 'Facts, risks and recommendations', prompt: 'Assess our position in this file: established facts, strengths, risks and recommendations' },
 ]
 
 export function ChatPage() {
   const { t, language } = useTranslation()
-  const isTablet = useIsTablet()
   const [params, setParams] = useSearchParams()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const conversations = useConversations((state) => state.conversations)
   const activeId = useConversations((state) => state.activeId)
@@ -158,21 +165,8 @@ export function ChatPage() {
 
   return (
     <div className="chat">
-      {!isTablet && <ConversationSidebar />}
-
-      {isTablet && sidebarOpen && (
-        <div className="chat__drawer" onClick={() => setSidebarOpen(false)}>
-          <div onClick={(event) => event.stopPropagation()}>
-            <ConversationSidebar onSelect={() => setSidebarOpen(false)} />
-          </div>
-        </div>
-      )}
-
       <section className="chat__main">
         <header className="chat__header">
-          {isTablet && (
-            <IconButton icon="menu" label={t('chat.conversations')} onClick={() => setSidebarOpen(true)} />
-          )}
           <h1 className="chat__title">{conversation?.title || t('chat.title')}</h1>
           {documentFilter && (
             <button
@@ -198,7 +192,7 @@ export function ChatPage() {
               <Welcome
                 emptyLibrary={Boolean(emptyLibrary)}
                 loading={stats.isLoading}
-                examples={language === 'ar' ? EXAMPLES_AR : EXAMPLES_EN}
+                starters={language === 'ar' ? STARTERS_AR : STARTERS_EN}
                 onPick={(example) => {
                   if (!activeId) select(create())
                   onSubmit(example)
@@ -218,6 +212,15 @@ export function ChatPage() {
                   onFeedback={
                     message.response ? (feedback) => onFeedback(message.id, feedback) : undefined
                   }
+                  question={questionBefore(messages, message.id)}
+                  onFiles={
+                    message.response && conversation
+                      ? (files) =>
+                          updateMessage(conversation.id, message.id, {
+                            response: { ...message.response!, files: [...(message.response!.files ?? []), ...files] },
+                          })
+                      : undefined
+                  }
                 />
               ),
             )}
@@ -235,15 +238,20 @@ export function ChatPage() {
 function Welcome({
   emptyLibrary,
   loading,
-  examples,
+  starters,
   onPick,
 }: {
   emptyLibrary: boolean
   loading: boolean
-  examples: string[]
+  starters: Starter[]
   onPick: (example: string) => void
 }) {
   const { t } = useTranslation()
+  const { data: user } = useCurrentUser()
+  const hour = new Date().getHours()
+  const greeting = t(hour < 12 ? 'chat.greetMorning' : hour < 18 ? 'chat.greetAfternoon' : 'chat.greetEvening', {
+    name: (user?.display_name || '').split(/\s+/)[0] || '',
+  })
 
   if (loading) {
     return (
@@ -275,17 +283,29 @@ function Welcome({
       <span className="welcome__glyph">
         <Icon name="sparkles" size={26} />
       </span>
-      <h2 className="welcome__title">{t('chat.welcomeTitle')}</h2>
-      <p className="welcome__body">{t('chat.welcomeBody')}</p>
-      <div className="welcome__examples">
-        <span className="welcome__examples-label">{t('chat.examplesTitle')}</span>
-        {examples.map((example) => (
-          <button key={example} type="button" className="welcome__example" onClick={() => onPick(example)}>
-            {example}
-            <Icon name="chevronEnd" size={14} />
+      <h2 className="welcome__title">{greeting}</h2>
+      <p className="welcome__body">{t('chat.welcomePrompt')}</p>
+      <div className="welcome__starters">
+        {starters.map((starter) => (
+          <button key={starter.title} type="button" className="starter" onClick={() => onPick(starter.prompt)}>
+            <span className="starter__icon">
+              <Icon name={starter.icon} size={18} />
+            </span>
+            <span className="starter__text">
+              <strong>{starter.title}</strong>
+              <small>{starter.hint}</small>
+            </span>
           </button>
         ))}
       </div>
+      <p className="welcome__note">{t('chat.welcomeNote')}</p>
     </div>
   )
+}
+
+/** The reader's question an answer replies to: the nearest user message before it. */
+function questionBefore(messages: ChatMessage[], answerId: string): string {
+  const index = messages.findIndex((m) => m.id === answerId)
+  for (let i = index - 1; i >= 0; i -= 1) if (messages[i].role === 'user') return messages[i].content
+  return ''
 }

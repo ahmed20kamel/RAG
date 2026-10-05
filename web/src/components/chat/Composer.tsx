@@ -8,6 +8,7 @@ import { ApiError } from '@/services/client'
 import { toast } from '@/state/toasts'
 import type { ChatPicture } from '@/types/api'
 import { PictureMarker } from './PictureMarker'
+import { cx } from '@/utils/cx'
 
 const MAX_ROWS_HEIGHT = 200
 
@@ -99,9 +100,31 @@ export const Composer = forwardRef<HTMLTextAreaElement, ComposerProps>(function 
   }, [recorder.error, t])
 
   const recording = recorder.state === 'recording'
+  const [dragging, setDragging] = useState(false)
+
+  /** A picture pasted or dropped goes straight to the marker, as one chosen from disk. */
+  const takePicture = (files: FileList | null | undefined): boolean => {
+    const picture = Array.from(files ?? []).find((file) => file.type.startsWith('image/'))
+    if (!picture || disabled) return false
+    setMarking(picture)
+    return true
+  }
 
   return (
-    <div className="composer">
+    <div
+      className={cx('composer', dragging && 'composer--dragging')}
+      onDragOver={(event) => {
+        if (Array.from(event.dataTransfer.items).some((item) => item.type.startsWith('image/'))) {
+          event.preventDefault()
+          setDragging(true)
+        }
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(event) => {
+        setDragging(false)
+        if (takePicture(event.dataTransfer.files)) event.preventDefault()
+      }}
+    >
       {picture && (
         <div className="composer__attachment">
           <img src={picture.thumbnail} alt="" className="composer__thumb" />
@@ -176,10 +199,16 @@ export const Composer = forwardRef<HTMLTextAreaElement, ComposerProps>(function 
             placeholder={transcribing ? t('voice.transcribing') : t('chat.placeholder')}
             onChange={(event) => setValue(event.target.value)}
             onKeyDown={onKeyDown}
+            onPaste={(event) => {
+              if (takePicture(event.clipboardData?.files)) event.preventDefault()
+            }}
             aria-label={t('chat.placeholder')}
           />
         )}
         {transcribing && <Spinner size={15} />}
+        {!recording && !pending && (
+          <IconButton icon="mic" label={t('voice.menu')} onClick={voice} disabled={disabled || transcribing} />
+        )}
         {recording ? (
           <Button variant="danger" size="sm" icon="stop" onClick={recorder.stop}>
             {t('voice.stop')}
@@ -192,6 +221,7 @@ export const Composer = forwardRef<HTMLTextAreaElement, ComposerProps>(function 
           <IconButton
             icon="send"
             label={t('chat.send')}
+            className="composer__send"
             onClick={submit}
             disabled={(!value.trim() && !picture) || disabled || transcribing}
           />

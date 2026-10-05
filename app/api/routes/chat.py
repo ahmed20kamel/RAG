@@ -47,6 +47,35 @@ def answer_feedback(
     return {"recorded": bool(questions)}
 
 
+class ExportRequest(BaseModel):
+    """An answer already on the reader's screen, to be delivered as a file."""
+
+    format: Literal["pdf", "docx", "xlsx"]
+    title: str = Field(min_length=1, max_length=300)
+    markdown: str = Field(min_length=1, max_length=60000)
+    sources: list[dict] = Field(default_factory=list, max_length=60)
+
+
+@router.post("/chat/export")
+def export_answer(body: ExportRequest, container: ContainerDep, user: User = require(Permission.CHAT_ASK)):
+    """One click under an answer: the same template as a file asked for in words. The
+    figures are checked against the passages the answer cited, read again from the index
+    by their ids — not against anything the request itself claims."""
+    from app.schemas.chat import SourceReference
+    from app.services.file_export import FileRequest
+
+    sources = []
+    for raw in body.sources:
+        try:
+            sources.append(SourceReference.model_validate(raw))
+        except Exception:  # noqa: BLE001 - a malformed source is left out, not fatal
+            continue
+    reply = container.exports._deliver(
+        FileRequest(body.format, "last"), user, title=body.title, markdown=body.markdown, sources=sources,
+    )
+    return {"files": [f.model_dump() for f in reply.files], "note": reply.answer}
+
+
 @router.get("/chat/files/{file_id}")
 def download_file(file_id: str, container: ContainerDep, user: User = require(Permission.CHAT_ASK)):
     """A file made for this reader. Anyone else's id reads as not found."""

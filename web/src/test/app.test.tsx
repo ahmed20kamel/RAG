@@ -105,7 +105,8 @@ describe('App', () => {
 
   it('shows the welcome state when no conversation has been started', async () => {
     render(<App />)
-    expect(await screen.findByText(/اسأل مستنداتك|Ask your documents/)).toBeInTheDocument()
+    expect(await screen.findByText(/كيف أقدر أساعدك|How can I help/)).toBeInTheDocument()
+    expect(screen.getByText(/القيم والمبالغ|Values and amounts/)).toBeInTheDocument()
   })
 
   it('sends a signed-out visitor to the login page instead of the app', async () => {

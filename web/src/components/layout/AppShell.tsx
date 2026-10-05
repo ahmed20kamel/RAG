@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { ConversationSidebar } from '@/components/chat/ConversationSidebar'
 import { Icon, type IconName } from '@/components/ui/Icon'
 import { Button, IconButton, Kbd, Skeleton } from '@/components/ui/primitives'
 import { cx } from '@/utils/cx'
@@ -117,9 +118,16 @@ export function AppShell() {
     { key: '?', shift: true, handler: () => setShortcutsOpen(true) },
   ])
 
+  const navigate = useNavigate()
+  // One sidebar, as in the chat assistants people already know: new chat and the
+  // conversation history first, the system's other pages below them.
+  const conversations = (
+    <ConversationSidebar variant="rail" onSelect={() => { setDrawerOpen(false); navigate('/chat') }} />
+  )
   const nav = (
-    <nav className="rail__nav" aria-label={t('app.name')}>
-      {NAV.filter((item) => !item.permission || can(user, item.permission)).map((item) => (
+    <nav className="rail__nav" aria-label={t('chat.tools')}>
+      <p className="rail__section">{t('chat.tools')}</p>
+      {NAV.filter((item) => item.to !== '/chat' && (!item.permission || can(user, item.permission))).map((item) => (
         <NavLink
           key={item.to}
           to={item.to}
@@ -145,6 +153,7 @@ export function AppShell() {
               <small>{t('app.tagline')}</small>
             </span>
           </NavLink>
+          {conversations}
           {nav}
           <div className="rail__footer">
             <Button variant="ghost" size="sm" icon="keyboard" block onClick={() => setShortcutsOpen(true)}>
@@ -165,6 +174,7 @@ export function AppShell() {
                 <strong>{t('app.name')}</strong>
               </span>
             </div>
+            {conversations}
             {nav}
           </aside>
         </div>
@@ -176,7 +186,9 @@ export function AppShell() {
             <IconButton icon="menu" label={t('nav.openMenu')} onClick={() => setDrawerOpen(true)} />
           )}
           <div className="topbar__spacer" />
-          <HealthDot />
+          {/* The system's own health is the administrator's concern; to anyone else a
+              "degraded" badge only says something is wrong that they cannot fix. */}
+          {can(user, 'system.monitor') && <HealthDot />}
           <LanguageToggle />
           <ThemeToggle />
           <AccountMenu />

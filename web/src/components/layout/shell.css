@@ -271,3 +271,27 @@
     padding: var(--space-5) var(--space-4) var(--space-10);
   }
 }
+
+/* One sidebar: the conversations take the space, the system's pages sit below them. */
+.rail {
+  inline-size: 17.5rem;
+  gap: var(--space-3);
+}
+
+.rail__nav {
+  flex: none;
+  border-block-start: 1px solid var(--border);
+  padding-block-start: var(--space-2);
+}
+
+.rail__section {
+  margin: 0 var(--space-2) var(--space-1);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  color: var(--text-tertiary);
+}
+
+.rail__nav .rail__link {
+  padding-block: 0.4rem;
+  font-size: var(--text-xs);
+}
