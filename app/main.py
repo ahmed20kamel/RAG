@@ -37,6 +37,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     container = Container(settings)
     container.warmup()
     app.state.container = container
+    # Documents read the old way are re-read once after a change to how they are read.
+    from app.services.repairs import run_pending
+
+    run_pending(container)
 
     logger.info(
         "Ready | llm=%s | embeddings=%s | collection=%s",

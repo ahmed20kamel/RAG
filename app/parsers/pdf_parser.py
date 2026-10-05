@@ -17,6 +17,7 @@ document that answers nothing and looks fine in the library.
 from __future__ import annotations
 
 import logging
+import re
 import statistics
 from collections import Counter
 
@@ -41,6 +42,24 @@ MIN_PAGE_CHARS = 40
 #: Above this share of empty pages, the document is a scan rather than a PDF with a
 #: couple of image pages in it.
 SCANNED_SHARE = 0.6
+#: A typed page whose pictures cover this much of it carries content in them — a price
+#: table pasted as a picture, a scanned annex under a typed letterhead. Its typed text is
+#: kept and what the pictures say is added after it.
+PICTURE_SHARE = 0.15
+#: Smaller pictures are logos, stamps and signatures, whose text is not content.
+MIN_PICTURE_PIXELS = 400 * 200
+#: Lines read from a picture that carry figures the typed text lacks, needed before any
+#: are added. One stray line is OCR noise; a table brings several.
+MIN_NEW_FIGURE_LINES = 3
+_FIGURE = re.compile(r"\d+(?:[.,]\d+)*")
+#: Letterheads and footers: phone numbers, boxes and copyright lines are figures too, and
+#: a full-page letterhead image puts them on every page.
+_LETTERHEAD = re.compile(
+    r"tel|mob|fax|p\.?\s*o\.?\s*box|e-?mail|info@|www\.|https?://|@|©|\+971|"
+    r"building|office|l\.?l\.?c|consultancy|abu\s*dhabi|u\.?a\.?e|"
+    r"هاتف|الهاتف|الموبايل|جوال|فاكس|ص\.\s*ب|البريد|الحقوق|محفوظة|الرقم المرجعي",
+    re.IGNORECASE,
+)
 
 #: A heading is set larger than the body. Below this ratio the difference is leading or
 #: a slightly larger label, not a structural level.
@@ -117,9 +136,14 @@ class PdfParser(DocumentParser):
         """
         extracted = [arabic_pdf.page_text(page) for page in document]
         empty = [i for i, text in enumerate(extracted) if len(text) < MIN_PAGE_CHARS]
+        pictured = [
+            i for i, page in enumerate(document)
+            if i not in empty and self._picture_share(page) >= PICTURE_SHARE
+        ]
+        added = self._add_picture_text(document, extracted, pictured, filename)
 
         if not empty:
-            return extracted, 0
+            return extracted, added
 
         mostly_images = len(empty) / max(len(extracted), 1) >= SCANNED_SHARE
         ability = ocr.capability()
@@ -147,7 +171,95 @@ class PdfParser(DocumentParser):
                 f"قابلًا للاستخدام من أي صفحة."
             )
         logger.info("%s: %s page(s) read by OCR", filename, read)
-        return extracted, read
+        return extracted, read + added
+
+    @staticmethod
+    def _picture_share(page) -> float:
+        """How much of the page its pictures cover, overlaps counted once at most."""
+        try:
+            area = abs(page.rect.width * page.rect.height) or 1.0
+            covered = 0.0
+            for info in page.get_image_info():
+                if info.get("width", 0) * info.get("height", 0) < MIN_PICTURE_PIXELS:
+                    continue
+                x0, y0, x1, y1 = info.get("bbox", (0, 0, 0, 0))
+                covered += max(0.0, x1 - x0) * max(0.0, y1 - y0)
+            return min(1.0, covered / area)
+        except Exception:  # noqa: BLE001 - a page that cannot be measured is read as typed
+            return 0.0
+
+    def _add_picture_text(self, document, extracted: list[str], pages: list[int], filename: str) -> int:
+        """OCR for typed pages that are mostly picture, kept only where it says something
+        the typed text does not. Appended, never replacing: typed text is exact, OCR is
+        not, and where both say the same the typed version is the one to quote."""
+        if not pages or not self.enable_ocr or not ocr.capability().available:
+            return 0
+        added = 0
+        for index in pages:
+            text = self._picture_text(document, document[index])
+            if not text:
+                continue
+            lines = self._new_figure_lines(extracted[index], text)
+            if len(lines) >= MIN_NEW_FIGURE_LINES:
+                # Only the lines that bring figures the typed text lacks — a table pasted
+                # as a picture. The rest of the picture is the page's own text, rendered,
+                # and adding it would put every paragraph in the index twice.
+                extracted[index] = f"{extracted[index]}\n\n" + "\n".join(lines)
+                added += 1
+        if added:
+            logger.info("%s: text added from pictures on %s typed page(s)", filename, added)
+        return added
+
+    @staticmethod
+    def _picture_text(document, page) -> str:
+        """What the page's large pictures say — the pictures themselves, not the page.
+
+        Reading the rendered page would read the typed text over again, through OCR's
+        errors: "90%" came back as "9090", a figure the typed text lacked and so looked
+        new. A letterhead printed as a full-page background yields only the letterhead.
+        """
+        from PIL import Image
+
+        import pymupdf
+
+        texts = []
+        for info in page.get_image_info(xrefs=True):
+            xref = info.get("xref") or 0
+            if not xref or info.get("width", 0) * info.get("height", 0) < MIN_PICTURE_PIXELS:
+                continue
+            try:
+                pixmap = pymupdf.Pixmap(document, xref)
+                if pixmap.n - pixmap.alpha >= 4:  # CMYK and the like, converted for reading
+                    pixmap = pymupdf.Pixmap(pymupdf.csRGB, pixmap)
+                picture = Image.frombytes("RGB" if pixmap.n - pixmap.alpha == 3 else "L",
+                                          (pixmap.width, pixmap.height),
+                                          pixmap.samples if not pixmap.alpha else pymupdf.Pixmap(pixmap, 0).samples)
+            except Exception:  # noqa: BLE001 - an image that will not decode is skipped
+                logger.debug("Picture %s on page %s could not be decoded", xref, page.number)
+                continue
+            text = ocr.read_image(picture)
+            if text:
+                texts.append(text)
+        return "\n".join(texts)
+
+    @staticmethod
+    def _new_figure_lines(typed: str, read: str) -> list[str]:
+        """Lines of OCR text with a figure of two or more digits the typed text does not
+        contain, letterhead and footer lines left out."""
+        known = {n.replace(",", "") for n in _FIGURE.findall(typed)}
+        known |= {part for n in known for part in n.split(".")}
+        lines = []
+        for line in read.splitlines():
+            line = line.strip()
+            if not line or _LETTERHEAD.search(line):
+                continue
+            fresh = [
+                n for n in _FIGURE.findall(line)
+                if n.replace(",", "") not in known and len(n.replace(",", "").replace(".", "")) >= 2
+            ]
+            if fresh:
+                lines.append(line)
+        return lines
 
     @staticmethod
     def _read_tables(document) -> dict[int, list[list[list[str]]]]:
