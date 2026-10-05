@@ -327,22 +327,26 @@ class RagService:
         # A picture's words make this question about that picture: answered afresh,
         # and neither answered from memory nor kept there for the bare wording.
         pictured = bool((request.image_marked or "").strip() or (request.image_text or "").strip())
-        if pictured:
-            from app.services.chat_attachments import attach_picture_text
-
-            request = request.model_copy(update={
-                "question": attach_picture_text(request.question, request.image_text or "", request.image_marked or ""),
-                "fresh": True,
-            })
         try:
             # What this person asked before shapes what is searched now: a follow-up is
             # read in the context of the question it follows, and a wording that once
-            # failed is searched as the wording that later worked.
-            prepared = self._prepare(request, user)
+            # failed is searched as the wording that later worked. Read on the asker's
+            # own words, before any picture text is added to them.
+            prepared = self._prepare(request, user, pictured)
             if prepared is not None:
                 request = request.model_copy(update={
                     "question": prepared.question,
                     "document_ids": request.document_ids or prepared.document_ids,
+                })
+            if pictured:
+                from app.services.chat_attachments import attach_picture_text
+
+                request = request.model_copy(update={
+                    "question": attach_picture_text(
+                        request.question, request.image_text or "", request.image_marked or "",
+                        english=language_of(asked.question) == "en",
+                    ),
+                    "fresh": True,
                 })
             follow_up = prepared is not None and prepared.follow_up
             # A follow-up's answer depends on its conversation, so it is neither
@@ -381,13 +385,13 @@ class RagService:
             )
         return response
 
-    def _prepare(self, request: ChatRequest, user):
+    def _prepare(self, request: ChatRequest, user, pictured: bool = False):
         memory = getattr(self, "question_memory", None)
         if memory is None or user is None:
             return None
         return memory.prepare(
             user, request.question, request.conversation_id,
-            has_scope=bool(request.document_ids or request.category),
+            has_scope=bool(request.document_ids or request.category), pictured=pictured,
         )
 
     def _log_question(self, asked: ChatRequest, user, prepared, response: ChatResponse, reusable: bool = True) -> None:
@@ -510,10 +514,19 @@ class RagService:
         if analysis.overview and request.document_ids and len(request.document_ids) == 1:
             candidates = self._with_document_header(request.document_ids[0], candidates)
 
-        if candidates and not chose_files:
+        picture = None
+        if (request.image_text or "").strip() or (request.image_marked or "").strip():
+            from app.services.chat_attachments import picture_evidence
+
+            picture = picture_evidence(request.image_text or "", request.image_marked or "",
+                                       english=analysis.language == "en")
+        if candidates and not chose_files and picture is None:
             unclear = self._which_file(analysis, candidates, plan, timings)
             if unclear is not None:
                 return unclear
+        if picture is not None:
+            # What the reader showed comes first: they sent it to be answered from.
+            candidates = [picture, *[c for c in candidates if c.chunk_id != picture.chunk_id]]
 
         if not candidates:
             # The documents have nothing. In the production mode that is the end of it:
@@ -1663,7 +1676,9 @@ class RagService:
     def _language_directive(question: str) -> str:
         # Counted on the prose, not on the file names and codes inside it — a file name
         # outweighed the Arabic around it and an Arabic question was answered in English.
-        prose = prose_letters(question)
+        # Quoted material — a picture's text, a subject carried from the previous turn —
+        # is the evidence's language, not the reader's.
+        prose = prose_letters(re.sub(r"«[^»]*»", " ", question))
         arabic = len(ARABIC_RANGE.findall(prose))
         latin = len(LATIN_RANGE.findall(prose))
         if latin > arabic:

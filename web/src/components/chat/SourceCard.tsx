@@ -51,7 +51,10 @@ export function SourceCard({
           </span>
           <Badge tone={TONE[source.tier]}>{t(`source.tier.${source.tier}`)}</Badge>
         </div>
-        <IconButton icon="externalLink" label={t('source.openSource')} size="sm" onClick={open} />
+        {/* The reader's own attached picture is a source with no document to open. */}
+        {source.document_id !== 'attached-picture' && (
+          <IconButton icon="externalLink" label={t('source.openSource')} size="sm" onClick={open} />
+        )}
       </header>
 
       {crumbs.length > 0 && (

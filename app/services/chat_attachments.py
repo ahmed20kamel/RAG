@@ -80,19 +80,56 @@ def read_picture(data: bytes, marks: list[Mark]) -> ReadPicture:
     return ReadPicture(text=read_image(picture), marked=[m for m in marked if m.strip()])
 
 
-def attach_picture_text(question: str, text: str, marked: str) -> str:
-    """The question with what the picture says, as one sentence — not as a second
-    question the analyser would split off and answer separately."""
-    def flat(value: str) -> str:
-        return " ".join(value.replace("؟", " ").replace("?", " ").split())
+#: How much of the picture's text joins the question itself — enough for the search to
+#: find the document it came from. All of it goes to the model as evidence.
+SEARCH_EXCERPT_CHARS = 300
+#: The evidence a picture becomes: what the model reads and cites as «الصورة المرفقة».
+PICTURE_DOCUMENT_ID = "attached-picture"
 
-    marked, text = flat(marked), flat(text)
+
+def _flat(value: str) -> str:
+    return " ".join(value.replace("؟", " ").replace("?", " ").split())
+
+
+def attach_picture_text(question: str, text: str, marked: str, english: bool = False) -> str:
+    """The question with what the picture says, as one sentence — not as a second
+    question the analyser would split off and answer separately — and joined in the
+    question's own language, or an English question is answered in Arabic."""
+    marked, text = _flat(marked), _flat(text)
     body = question.strip().rstrip("؟?. ")
+    end = "?" if english else "؟"
     if marked:
-        return f"{body} بخصوص الجزء المعلَّم في الصورة المرفقة: «{marked[:MAX_ATTACHED_CHARS]}»؟"
+        lead = " regarding the marked part of the attached picture:" if english else " بخصوص الجزء المعلَّم في الصورة المرفقة:"
+        return f"{body}{lead} «{marked[:SEARCH_EXCERPT_CHARS]}»{end}"
     if text:
-        return f"{body} بخصوص الصورة المرفقة التي فيها: «{text[:MAX_ATTACHED_CHARS // 2]}»؟"
+        lead = " regarding the attached picture, which reads:" if english else " بخصوص الصورة المرفقة التي فيها:"
+        return f"{body}{lead} «{text[:SEARCH_EXCERPT_CHARS]}»{end}"
     return question
+
+
+def picture_evidence(text: str, marked: str, english: bool = False):
+    """The picture as a passage the answer may quote and cite, the marked part first.
+
+    The reader showed it in order to be answered from it: kept out of the evidence, the
+    prices plainly visible in a screenshot were "not in the sources".
+    """
+    from app.core.retrieval import Candidate
+
+    body = "\n\n".join(part for part in (
+        (("The marked part: " if english else "الجزء المعلَّم: ") + marked.strip()) if marked.strip() else "",
+        text.strip(),
+    ) if part)
+    if not body:
+        return None
+    name = "Attached picture" if english else "الصورة المرفقة"
+    candidate = Candidate(
+        chunk_id=PICTURE_DOCUMENT_ID, document_id=PICTURE_DOCUMENT_ID, filename=name,
+        document_title=name, section=name, section_id=PICTURE_DOCUMENT_ID, heading=name,
+        parent_section="", content=body,
+    )
+    candidate.rerank_score = 1.0
+    candidate.fused_score = 1.0
+    return candidate
 
 
 class SpeechToText:

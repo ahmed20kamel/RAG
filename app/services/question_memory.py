@@ -27,7 +27,7 @@ from sqlalchemy import select
 from app.models.database import session_scope
 from app.models.question_log import QuestionRecord
 from app.services.learning_loop import answered
-from app.services.query_analysis import NORMALISED_INTERROGATIVES
+from app.services.query_analysis import NORMALISED_INTERROGATIVES, language_of
 from app.services.query_rewrite import canonicalize
 
 logger = logging.getLogger(__name__)
@@ -43,6 +43,11 @@ FILLERS = {"طيب", "طب", "يعني", "بس", "كمان", "ايضا", "أيض
 #: Question words stripped from a subject before it is attached to a follow-up.
 LEADING_QUESTION = re.compile(
     r"^\s*(?:ما\s+هي|ما\s+هو|ماذا|ما|كم|هل|متى|أين|اين|كيف|من|لماذا|what|how|when|is|are)\s+",
+    re.IGNORECASE,
+)
+#: Words that point at something shown rather than name it.
+POINTING = re.compile(
+    r"\b(?:this|these|that|here|attached|picture|image|screenshot)\b|هذا|هذه|هذي|هنا|دا|ده|دي|فيها|فيه|الصورة|المرفق",
     re.IGNORECASE,
 )
 #: Clicked from a refusal's suggestions: the same question, confined to one file.
@@ -90,16 +95,27 @@ class QuestionMemory:
         sentence because a bracketed "(السؤال السابق: …؟)" was read as a second part,
         and answered as one."""
         topic = LEADING_QUESTION.sub("", subject.strip()).strip().rstrip("؟?. ")
+        if language_of(question) == "en":
+            return f"{question.strip().rstrip('؟?. ')} regarding {topic}?"
         return f"{question.strip().rstrip('؟?. ')} بخصوص {topic}؟"
 
-    def prepare(self, user, question: str, conversation_id: str | None, has_scope: bool) -> Prepared:
-        """The question to search, given everything this person asked before."""
+    def prepare(self, user, question: str, conversation_id: str | None, has_scope: bool,
+                pictured: bool = False) -> Prepared:
+        """The question to search, given everything this person asked before.
+
+        A picture sent into a conversation, with "this" in the words that go with it or
+        after a question that went unanswered, is about that question: "the rates are
+        clearly visible here" is the evidence for what was just asked.
+        """
         if user is None:
             return Prepared(question)
         try:
             with session_scope() as db:
                 previous = self._last_turn(db, user.id, conversation_id)
-                if previous is not None and self.is_follow_up(question):
+                continues = self.is_follow_up(question) or (pictured and previous is not None and (
+                    previous.outcome != "answered" or POINTING.search(question)
+                ))
+                if previous is not None and continues:
                     subject = self.subject_of(previous)
                     scope = None
                     if not has_scope and previous.outcome == "answered" and previous.document_ids:
