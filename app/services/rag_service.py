@@ -323,6 +323,16 @@ class RagService:
         ticket = ACTIVITY.begin(getattr(user, "id", None))
         asked = request
         prepared = None
+        # A picture's words make this question about that picture: answered afresh,
+        # and neither answered from memory nor kept there for the bare wording.
+        pictured = bool((request.image_marked or "").strip() or (request.image_text or "").strip())
+        if pictured:
+            from app.services.chat_attachments import attach_picture_text
+
+            request = request.model_copy(update={
+                "question": attach_picture_text(request.question, request.image_text or "", request.image_marked or ""),
+                "fresh": True,
+            })
         try:
             # What this person asked before shapes what is searched now: a follow-up is
             # read in the context of the question it follows, and a wording that once
@@ -346,10 +356,12 @@ class RagService:
                     request = request.model_copy(update={"document_ids": asked.document_ids})
                     response = self._answer(request, user)
                 self._withhold_sensitive(request.question, response)
-                if not follow_up:
+                if not follow_up and not pictured:
                     self._remember(request, user, response)
             if prepared is not None and prepared.notes and response.plan is not None:
                 response.plan.rewrites = [*response.plan.rewrites, *prepared.notes]
+            if pictured and response.plan is not None:
+                response.plan.rewrites = [*response.plan.rewrites, "صورة مرفقة ← قُرئ نصها وأُضيف إلى السؤال"]
         except Exception as exc:
             if self.metrics is not None:
                 self.metrics.record_error(
@@ -358,7 +370,7 @@ class RagService:
             raise
         finally:
             ACTIVITY.end(ticket)
-        self._log_question(asked, user, prepared, response)
+        self._log_question(asked, user, prepared, response, reusable=not pictured)
         if self.metrics is not None:
             self.metrics.record(
                 channel, asked.question, response, self._elapsed_ms(started), user
@@ -374,11 +386,12 @@ class RagService:
             has_scope=bool(request.document_ids or request.category),
         )
 
-    def _log_question(self, asked: ChatRequest, user, prepared, response: ChatResponse) -> None:
+    def _log_question(self, asked: ChatRequest, user, prepared, response: ChatResponse, reusable: bool = True) -> None:
         memory = getattr(self, "question_memory", None)
         if memory is None or user is None:
             return
-        memory.record(user, asked.question, asked.conversation_id, prepared, response, self._memory_stamp(user))
+        memory.record(user, asked.question, asked.conversation_id, prepared, response,
+                      self._memory_stamp(user), reusable=reusable)
 
     def _memory_stamp(self, user) -> str | None:
         try:

@@ -47,6 +47,10 @@ export type IconName =
   | 'file'
   | 'shield'
   | 'keyboard'
+  | 'image'
+  | 'mic'
+  | 'pen'
+  | 'undo'
 
 const PATHS: Record<IconName, string> = {
   chat: 'M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.9-.9L3 21l1.9-4.1A8.4 8.4 0 0 1 4 12.5a8.4 8.4 0 0 1 9-8.4 8.4 8.4 0 0 1 8 7.4z',
@@ -88,6 +92,10 @@ const PATHS: Record<IconName, string> = {
   file: 'M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM13 2v7h7',
   shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4',
   keyboard: 'M3 6h18v12H3zM7 10h.01M11 10h.01M15 10h.01M17 10h.01M7 14h10',
+  image: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
+  mic: 'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 22h8',
+  pen: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z',
+  undo: 'M3 7v6h6M3 13a9 9 0 1 0 3-7.7L3 7',
 }
 
 const FILLED = new Set<IconName>(['stop'])

@@ -180,7 +180,9 @@ class QuestionMemory:
 
     # -- writing -----------------------------------------------------------
     def record(self, user, question: str, conversation_id: str | None, prepared: Prepared | None,
-               response, stamp: str | None) -> None:
+               response, stamp: str | None, reusable: bool = True) -> None:
+        """Keep the question. `reusable=False` — a question about an attached picture —
+        keeps it without the answer a later bare repeat could be given."""
         if user is None:
             return
         outcome = self.outcome(response)
@@ -197,7 +199,7 @@ class QuestionMemory:
                     subject=prepared.subject if prepared is not None else "",
                     outcome=outcome,
                     answer=getattr(response, "answer", "") or "",
-                    response=response.model_dump(mode="json") if outcome == "answered" else {},
+                    response=response.model_dump(mode="json") if outcome == "answered" and reusable else {},
                     document_ids=sorted({s.document_id for s in getattr(response, "sources", []) or []
                                          if getattr(s, "document_id", "")}),
                     stamp=stamp or "",

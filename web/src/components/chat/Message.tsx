@@ -18,7 +18,12 @@ import type { SourceReference } from '@/types/api'
 export function UserMessage({ message }: { message: ChatMessage }) {
   return (
     <div className="msg msg--user">
-      <div className="msg__bubble">{message.content}</div>
+      <div className="msg__bubble">
+        {message.picture && (
+          <img src={message.picture.thumbnail} alt="" className="msg__picture" loading="lazy" />
+        )}
+        {message.content}
+      </div>
     </div>
   )
 }

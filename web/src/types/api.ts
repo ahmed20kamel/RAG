@@ -152,6 +152,9 @@ export interface ChatRequest {
   conversation_id?: string | null
   /** Regenerate: answer afresh rather than from memory. */
   fresh?: boolean
+  /** Words read from an attached picture, and from the part marked on it. */
+  image_text?: string | null
+  image_marked?: string | null
 }
 
 
@@ -361,4 +364,21 @@ export interface UploadMetadata {
   /** From a folder upload. */
   project?: string
   folder?: string
+}
+
+/** A region marked on a picture, as fractions of its width and height. */
+export interface PictureMark {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+/** A picture attached to a question: what it showed, and what was read from it. */
+export interface ChatPicture {
+  /** A small JPEG of the picture with its marks, for the conversation. */
+  thumbnail: string
+  text: string
+  marked: string
+  hasText: boolean
 }

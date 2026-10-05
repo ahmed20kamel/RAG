@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { ChatResponse } from '@/types/api'
+import type { ChatPicture, ChatResponse } from '@/types/api'
 
 /**
  * Conversation history lives in this browser.
@@ -18,6 +18,8 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   createdAt: number
+  /** A picture the reader attached to this question. */
+  picture?: ChatPicture
   /** Present on assistant messages that completed. */
   response?: ChatResponse
   error?: string

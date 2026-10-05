@@ -15,6 +15,7 @@ import { chatApi } from '@/services/chat'
 import { ApiError } from '@/services/client'
 import { toast } from '@/state/toasts'
 import { newId, useConversations, type ChatMessage, type Feedback } from '@/state/conversations'
+import type { ChatPicture } from '@/types/api'
 import '@/components/chat/chat.css'
 
 const EXAMPLES_AR = [
@@ -75,7 +76,7 @@ export function ChatPage() {
   }, [])
 
   const run = useCallback(
-    async (conversationId: string, question: string, fresh = false) => {
+    async (conversationId: string, question: string, fresh = false, picture?: ChatPicture) => {
       const placeholder: ChatMessage = {
         id: newId(),
         role: 'assistant',
@@ -89,6 +90,8 @@ export function ChatPage() {
           document_ids: documentFilter ? [documentFilter] : null,
           conversation_id: conversationId,
           fresh,
+          image_text: picture?.text || null,
+          image_marked: picture?.marked || null,
         })
         if (!response) return
         appendMessage(conversationId, { ...placeholder, content: response.answer, response })
@@ -111,15 +114,16 @@ export function ChatPage() {
   )
 
   const onSubmit = useCallback(
-    (question: string) => {
+    (question: string, picture?: ChatPicture) => {
       const conversationId = activeId ?? create()
       appendMessage(conversationId, {
         id: newId(),
         role: 'user',
         content: question,
         createdAt: Date.now(),
+        picture,
       })
-      void run(conversationId, question)
+      void run(conversationId, question, false, picture)
     },
     [activeId, appendMessage, create, run],
   )
@@ -131,7 +135,7 @@ export function ChatPage() {
       const question = [...conversation.messages.slice(0, index)].reverse().find((m) => m.role === 'user')
       if (!question) return
       dropMessagesFrom(conversation.id, assistantMessageId)
-      void run(conversation.id, question.content, true)
+      void run(conversation.id, question.content, true, question.picture)
     },
     [conversation, dropMessagesFrom, run],
   )

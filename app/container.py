@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from app.config import Settings
+from app.config import BASE_DIR, Settings
 from app.parsers.base import ParserRegistry
 from app.parsers.docx_parser import DocxParser
 from app.parsers.markdown_parser import MarkdownParser
@@ -46,6 +46,7 @@ from app.services.query_rewrite import SynonymLexicon, learned_terms_from_db
 from app.services.rag_service import RagService
 from app.services.learning_loop import AnswerMemory, RephraseLearner
 from app.services.question_memory import QuestionMemory
+from app.services.chat_attachments import SpeechToText
 from app.services.organizer import DocumentOrganizer
 from app.services.table_assist import RagflowTableAssist
 from app.services.reranking import CrossEncoderReranker, FeatureReranker
@@ -242,6 +243,12 @@ class Container:
                 refusal_rate=settings.monitor_refusal_rate,
             ),
         )
+        # The chat's microphone. Loaded on first use, so a machine where nobody speaks
+        # never pays for the model.
+        self.speech = SpeechToText(
+            settings.speech_model, settings.speech_language,
+            BASE_DIR / "models" / "whisper", settings.speech_max_seconds,
+        ) if settings.speech_enabled else None
         self.rephrase_learner = RephraseLearner(
             analyzer=self.query_analyzer,
             keyword_index=self.keyword_index,

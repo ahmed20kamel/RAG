@@ -931,3 +931,156 @@
   gap: var(--space-2);
   margin-block: var(--space-2);
 }
+
+/* Composer extras: the "+" menu, an attached picture, a recording -------- */
+.composer__more {
+  position: relative;
+  flex: none;
+}
+
+.composer__menu {
+  position: absolute;
+  inset-block-end: calc(100% + var(--space-2));
+  inset-inline-start: 0;
+  z-index: 20;
+  min-inline-size: 15rem;
+  padding: var(--space-1);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md, var(--shadow-sm));
+}
+
+.composer__menu button {
+  inline-size: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md, var(--radius-lg));
+  text-align: start;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.composer__menu button:hover,
+.composer__menu button:focus-visible {
+  background: var(--accent-soft);
+}
+
+.composer__menu button > svg {
+  flex: none;
+  margin-block-start: 0.15em;
+  color: var(--accent);
+}
+
+.composer__menu small {
+  display: block;
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+}
+
+.composer__attachment {
+  max-inline-size: var(--content-max);
+  margin: 0 auto var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  font-size: var(--text-sm);
+}
+
+.composer__thumb {
+  inline-size: 3.5rem;
+  block-size: 3.5rem;
+  object-fit: cover;
+  border-radius: var(--radius-md, var(--radius-lg));
+  flex: none;
+}
+
+.composer__attachment-text {
+  flex: 1;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.composer__attachment-text span {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.composer__attachment-warn {
+  color: var(--warning) !important;
+}
+
+.composer__recording {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.composer__rec-dot {
+  inline-size: 0.6rem;
+  block-size: 0.6rem;
+  border-radius: 50%;
+  background: #e5484d;
+  animation: rec-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes rec-pulse {
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composer__rec-dot { animation: none; }
+}
+
+.msg__picture {
+  display: block;
+  max-inline-size: min(100%, 16rem);
+  border-radius: var(--radius-md, var(--radius-lg));
+  margin-block-end: var(--space-2);
+}
+
+/* Picture marker ---------------------------------------------------------- */
+.picture-marker__hint {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.picture-marker__stage {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-block-size: 8rem;
+  max-block-size: 65vh;
+  overflow: auto;
+  background: var(--canvas);
+  border-radius: var(--radius-lg);
+}
+
+.picture-marker__canvas {
+  display: block;
+  max-inline-size: 100%;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.picture-marker__error {
+  margin: var(--space-2) 0 0;
+  color: var(--danger, #e5484d);
+  font-size: var(--text-sm);
+}

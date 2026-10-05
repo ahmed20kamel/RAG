@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, File, Form, UploadFile
 from pydantic import BaseModel, Field
 
 from app.api.deps import ContainerDep, RagServiceDep, SessionDep, require
@@ -43,6 +43,52 @@ def answer_feedback(
         for question in questions:
             service.answer_memory.forget(user, question)
     return {"recorded": bool(questions)}
+
+
+@router.post("/chat/picture")
+async def read_chat_picture(
+    file: UploadFile = File(...),
+    marks: str = Form(default="[]"),
+    _user: User = require(Permission.CHAT_ASK),
+) -> dict[str, object]:
+    """Read a picture the reader is about to ask about, and the parts they marked on it.
+
+    `marks` is a JSON list of {x, y, w, h}, each a fraction of the picture's size. The
+    picture is read and dropped; only its words come back, to be sent with the question.
+    """
+    import json
+
+    from starlette.concurrency import run_in_threadpool
+
+    from app.exceptions import ValidationError
+    from app.services.chat_attachments import Mark, read_picture
+
+    try:
+        regions = [Mark(float(m["x"]), float(m["y"]), float(m["w"]), float(m["h"])) for m in json.loads(marks or "[]")]
+    except (ValueError, KeyError, TypeError) as exc:
+        raise ValidationError("علامات الصورة غير صالحة.") from exc
+    data = await file.read()
+    picture = await run_in_threadpool(read_picture, data, regions)
+    return {"text": picture.text, "marked": " … ".join(picture.marked), "has_text": picture.has_text}
+
+
+@router.post("/chat/transcribe")
+async def transcribe(
+    container: ContainerDep,
+    file: UploadFile = File(...),
+    _user: User = require(Permission.CHAT_ASK),
+) -> dict[str, str]:
+    """Speech to text, on this machine. The text comes back to the reader's input box to
+    be read and corrected before it is sent — never sent as a question unseen."""
+    from starlette.concurrency import run_in_threadpool
+
+    from app.exceptions import IntegrationDisabledError
+
+    if container.speech is None:
+        raise IntegrationDisabledError("الإدخال الصوتي غير مفعّل على هذا الخادم.")
+    suffix = "." + (file.filename or "audio.webm").rsplit(".", 1)[-1][:5]
+    data = await file.read()
+    return {"text": await run_in_threadpool(container.speech.transcribe, data, suffix)}
 
 
 @router.post("/chat", response_model=ChatResponse)

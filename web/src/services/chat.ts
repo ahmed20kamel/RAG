@@ -1,5 +1,5 @@
 import { api, streamNdjson } from './client'
-import type { ChatRequest, ChatResponse, ChatStreamEvent } from '@/types/api'
+import type { ChatRequest, ChatResponse, ChatStreamEvent, PictureMark } from '@/types/api'
 
 export const chatApi = {
   /** One-shot answer. Used when the stage stream is unavailable. */
@@ -16,6 +16,22 @@ export const chatApi = {
     onEvent: (event: ChatStreamEvent) => void,
     signal?: AbortSignal,
   ) => streamNdjson<ChatStreamEvent>('/api/chat/stream', body, onEvent, signal),
+
+  /** Reads a picture and the parts marked on it; only the words come back. */
+  readPicture: (file: Blob, marks: PictureMark[]) => {
+    const form = new FormData()
+    form.append('file', file, 'picture.jpg')
+    form.append('marks', JSON.stringify(marks))
+    return api.post<{ text: string; marked: string; has_text: boolean }>('/api/chat/picture', form)
+  },
+
+  /** Speech to text on the server; the text returns to the input box for review. */
+  transcribe: (audio: Blob) => {
+    const form = new FormData()
+    const extension = audio.type.includes('ogg') ? 'ogg' : audio.type.includes('mp4') ? 'mp4' : 'webm'
+    form.append('file', audio, `speech.${extension}`)
+    return api.post<{ text: string }>('/api/chat/transcribe', form)
+  },
 
   /** The reader's thumbs on an answer; a thumbs-down answer is never repeated. */
   feedback: (answerId: string, feedback: 'up' | 'down' | null) =>

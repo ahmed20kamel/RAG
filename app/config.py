@@ -157,6 +157,14 @@ class Settings(BaseSettings):
     #: Repeated questions answered from memory while the reader's documents and the
     #: knowledge base are unchanged (app/services/learning_loop.py).
     answer_memory_enabled: bool = True
+    #: Speech to text for the chat's microphone, run on this machine (faster-whisper):
+    #: the browser's own dictation sends the audio to an outside service. "small" reads
+    #: Arabic acceptably on a CPU in a few seconds; "medium" reads it better, slower.
+    speech_enabled: bool = True
+    speech_model: str = "small"
+    #: "ar" for Arabic; empty to let the model detect the language of each recording.
+    speech_language: str = "ar"
+    speech_max_seconds: int = 120
     allowed_extensions: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: [".md", ".markdown", ".xlsx", ".xlsm", ".docx", ".pdf",
                                  ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"]

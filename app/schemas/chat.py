@@ -168,6 +168,10 @@ class ChatRequest(BaseModel):
     conversation_id: str | None = Field(default=None, max_length=64)
     #: Asked for again ("regenerate"): answered afresh, never from memory.
     fresh: bool = False
+    #: Words read from a picture the reader attached, and from the part they marked on
+    #: it (POST /api/chat/picture). The picture itself is never sent with the question.
+    image_text: str | None = Field(default=None, max_length=8000)
+    image_marked: str | None = Field(default=None, max_length=4000)
 
 
 class ChatChoice(BaseModel):
