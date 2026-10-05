@@ -109,6 +109,22 @@ export function AssistantMessage({
 
         {message.stopped && <p className="chat-note">{t('chat.stopped')}</p>}
 
+        {/* What the check of the answer found, said where the reader is looking: every
+            figure in it was found in the sources, or which one was not. */}
+        {response && grounded && sources.length > 0 && response.validation && (
+          response.validation.unsupported_values.length > 0 ? (
+            <p className="answer-check answer-check--warn" role="note">
+              <Icon name="alert" size={13} />
+              {t('chat.checkUnsupported', { values: response.validation.unsupported_values.slice(0, 3).join('، ') })}
+            </p>
+          ) : (
+            <p className="answer-check" role="note">
+              <Icon name="check" size={13} />
+              {t('chat.checkVerified', { count: new Set(sources.map((s) => s.document_id)).size })}
+            </p>
+          )
+        )}
+
         {(response?.files?.length ?? 0) > 0 && <FileCards files={response!.files!} />}
 
         {onChoose && (response?.choices?.length ?? 0) > 0 && (
@@ -174,7 +190,13 @@ export function AssistantMessage({
                 label={t('chat.notHelpful')}
                 size="sm"
                 active={message.feedback === 'down'}
-                onClick={() => onFeedback(message.feedback === 'down' ? null : 'down')}
+                onClick={() => {
+                  const down = message.feedback !== 'down'
+                  onFeedback(down ? 'down' : null)
+                  // "Wrong" leads straight to "what is right?": the correction is what
+                  // the system learns from, and asked for at the moment it is known.
+                  if (down && answerId && mayTeach) setDialog('correct')
+                }}
               />
             </>
           )}

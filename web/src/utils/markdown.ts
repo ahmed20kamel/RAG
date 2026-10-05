@@ -11,7 +11,8 @@ import DOMPurify from 'dompurify'
 
 marked.setOptions({ gfm: true, breaks: true })
 
-const CITATION = /\[(\d{1,2})\]/g
+/** One or more adjacent citations: "[1]", "[1][3]", "[1] [3]", "[1, 3]", "[1، 3]". */
+const CITATION_RUN = /\[\d{1,2}(?:\s*[,،]\s*\d{1,2})*\](?:\s*\[\d{1,2}(?:\s*[,،]\s*\d{1,2})*\])*/g
 
 export interface RenderedMarkdown {
   html: string
@@ -26,19 +27,30 @@ const CLOSE = 'CITE'
 export function renderMarkdown(source: string): RenderedMarkdown {
   const citations: number[] = []
 
-  const marked_source = source.replace(CITATION, (match, digits: string) => {
-    const n = Number(digits)
-    if (!Number.isFinite(n) || n < 1) return match
-    if (!citations.includes(n)) citations.push(n)
-    return `${OPEN}${n}${CLOSE}`
+  // A run of citations — "[1][3]", "[1] [3]", "[1, 3]" — becomes one marker. A row of
+  // numbers after every sentence read as clutter; one small mark per claim is enough,
+  // and every source it stands for is still listed and opens from it.
+  const marked_source = source.replace(CITATION_RUN, (match: string) => {
+    const numbers: number[] = []
+    for (const found of match.matchAll(/\d{1,2}/g)) {
+      const n = Number(found[0])
+      if (Number.isFinite(n) && n >= 1 && !numbers.includes(n)) numbers.push(n)
+    }
+    if (numbers.length === 0) return match
+    for (const n of numbers) if (!citations.includes(n)) citations.push(n)
+    return `${OPEN}${numbers.join('-')}${CLOSE}`
   })
 
   const parsed = marked.parse(marked_source, { async: false }) as string
 
   const withCitations = parsed.replace(
-    new RegExp(`${OPEN}(\\d{1,2})${CLOSE}`, 'g'),
-    (_match, digits: string) =>
-      `<button type="button" class="citation-chip" data-citation="${digits}" aria-label="citation ${digits}">${digits}</button>`,
+    new RegExp(`${OPEN}([\\d-]{1,40})${CLOSE}`, 'g'),
+    (_match, group: string) => {
+      const numbers = group.split('-')
+      const first = numbers[0]
+      const label = numbers.length > 1 ? `${first}+${numbers.length - 1}` : first
+      return `<button type="button" class="citation-chip" data-citation="${first}" title="${numbers.join('، ')}" aria-label="citation ${numbers.join(', ')}">${label}</button>`
+    },
   )
 
   const html = DOMPurify.sanitize(withCitations, {

@@ -343,29 +343,34 @@
 }
 
 /* Citation chips ---------------------------------------------------------- */
+/* Small and quiet: a mark that the claim has a source, not a second line of text. */
 .citation-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-inline-size: 1.125rem;
-  block-size: 1.125rem;
-  padding-inline: 0.25rem;
-  margin-inline: 0.125rem;
-  border-radius: var(--radius-xs);
+  min-inline-size: 0.95rem;
+  block-size: 0.95rem;
+  padding-inline: 0.2rem;
+  margin-inline: 0.15rem;
+  border-radius: 999px;
   background: var(--accent-soft);
   color: var(--accent-text);
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-semibold);
+  font-size: 0.6rem;
+  font-weight: var(--weight-medium);
   font-family: var(--font-mono);
-  vertical-align: baseline;
+  vertical-align: super;
+  line-height: 1;
+  opacity: 0.75;
   transition:
     background var(--duration-fast) var(--ease),
     color var(--duration-fast) var(--ease);
 }
 
-.citation-chip:hover {
+.citation-chip:hover,
+.citation-chip:focus-visible {
   background: var(--accent);
   color: #fff;
+  opacity: 1;
 }
 
 /* Sources ----------------------------------------------------------------- */
@@ -1148,4 +1153,18 @@
 
 .file-card__download {
   flex: none;
+}
+
+/* What the answer check found ---------------------------------------------- */
+.answer-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-2xs);
+  color: var(--success, #1b7a3d);
+}
+
+.answer-check--warn {
+  color: var(--warning);
 }

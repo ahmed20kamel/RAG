@@ -9,6 +9,14 @@ describe('renderMarkdown', () => {
     expect(html).toContain('citation-chip')
   })
 
+  it('merges a run of citations into one quiet marker that still lists them all', () => {
+    const { html, citations } = renderMarkdown('القيمة 125,000 درهم [1][3] والمدة 12 شهرًا [2, 4].')
+    expect(citations).toEqual([1, 3, 2, 4])
+    expect(html.match(/citation-chip/g)?.length).toBe(2)
+    expect(html).toContain('>1+1<')
+    expect(html).toContain('data-citation="2"')
+  })
+
   it('lists every distinct citation once, in order of first appearance', () => {
     const { citations } = renderMarkdown('أولًا [2]، ثم [1]، ثم [2] مرة أخرى.')
     expect(citations).toEqual([2, 1])
