@@ -8,10 +8,13 @@ interface PreferencesState {
   theme: ThemeChoice
   language: Language
   railCollapsed: boolean
+  /** "Deep thinking": the model reasons before it answers. Slower by minutes. */
+  deepThinking: boolean
   setTheme: (theme: ThemeChoice) => void
   cycleTheme: () => void
   setLanguage: (language: Language) => void
   toggleRail: () => void
+  toggleDeepThinking: () => void
 }
 
 /** Detects the document language once, so an Arabic user is not greeted in English. */
@@ -26,6 +29,7 @@ export const usePreferences = create<PreferencesState>()(
       theme: 'system',
       language: initialLanguage(),
       railCollapsed: false,
+      deepThinking: false,
       setTheme: (theme) => set({ theme }),
       cycleTheme: () => {
         const order: ThemeChoice[] = ['light', 'dark', 'system']
@@ -34,6 +38,7 @@ export const usePreferences = create<PreferencesState>()(
       },
       setLanguage: (language) => set({ language }),
       toggleRail: () => set({ railCollapsed: !get().railCollapsed }),
+      toggleDeepThinking: () => set({ deepThinking: !get().deepThinking }),
     }),
     { name: 'rag.preferences' },
   ),

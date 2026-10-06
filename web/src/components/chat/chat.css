@@ -1221,3 +1221,42 @@
   border: 2px dashed var(--accent);
   background: var(--accent-soft);
 }
+
+/* Deep thinking: a pill in the composer, and a note while it works ---------------- */
+.composer__deep {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex: none;
+}
+
+.composer__deep:hover {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.composer__deep.is-on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: var(--weight-medium);
+}
+
+.deep-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: var(--text-xs);
+  max-inline-size: 34rem;
+}

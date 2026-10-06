@@ -79,10 +79,54 @@ def reread_pictured_pdfs(container) -> None:
     _mark(name, "\n".join(names) or "none")
 
 
+def damaged_pdfs(documents) -> list:
+    """The PDFs with a page whose text layer does not match what it shows."""
+    import pymupdf
+
+    from app.parsers import arabic_pdf
+    from app.parsers.text_quality import DAMAGED, damage
+
+    found = []
+    for document in documents:
+        path = Path(document.stored_path or "")
+        if path.suffix.lower() != ".pdf" or not path.exists():
+            continue
+        try:
+            with pymupdf.open(str(path)) as pdf:
+                if any(damage(arabic_pdf.page_text(page)) >= DAMAGED for page in pdf):
+                    found.append(document)
+        except Exception:  # noqa: BLE001
+            logger.exception("Could not inspect %s", path.name)
+    return found
+
+
+def reread_damaged_pdfs(container) -> None:
+    name = "2026-10-06-damaged-text-layers"
+    if _done(name):
+        return
+    from sqlalchemy import select
+
+    from app.models.database import session_scope
+    from app.models.document import Document
+
+    with session_scope() as session:
+        documents = list(session.scalars(select(Document).where(Document.status == "completed")))
+        targets = damaged_pdfs(documents)
+        names = [d.filename for d in targets]
+        for document in targets:
+            container.document_service.reindex(session, document.id)
+    logger.info("Re-reading %s PDF(s) with damaged text layers: %s", len(names), names)
+    _mark(name, "\n".join(names) or "none")
+
+
 def run_pending(container) -> None:
     """In the background: startup is not held for it, and a failure is logged and tried
     again at the next start rather than stopping the server."""
     def work() -> None:
+        try:
+            reread_damaged_pdfs(container)
+        except Exception:  # noqa: BLE001
+            logger.exception("One-time repair failed; it will be tried at the next start")
         try:
             reread_pictured_pdfs(container)
         except Exception:  # noqa: BLE001

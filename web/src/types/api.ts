@@ -152,6 +152,8 @@ export interface ChatRequest {
   conversation_id?: string | null
   /** Regenerate: answer afresh rather than from memory. */
   fresh?: boolean
+  /** Deep thinking: the model reasons before it answers and before it reviews. */
+  deep?: boolean
   /** Words read from an attached picture, and from the part marked on it. */
   image_text?: string | null
   image_marked?: string | null

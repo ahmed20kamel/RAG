@@ -166,7 +166,28 @@ class Container:
         )
         # Behind the gate: requests queue here, in order, where a question whose reader
         # left can still be withdrawn — not inside the model, where it cannot.
+        # Two clients on the one model, through the one gate. Answers think before they
+        # write, with a timeout to match; background work — sorting an upload into a
+        # folder — does not need to, and does not hold the model that long.
+        thinker = OllamaLLMClient(
+            base_url=settings.ollama_base_url,
+            model=settings.ollama_model,
+            temperature=settings.ollama_temperature,
+            num_ctx=settings.ollama_num_ctx,
+            timeout=max(settings.ollama_timeout, settings.answer_timeout),
+            think=True,
+            keep_alive=settings.ollama_keep_alive,
+        ) if settings.answer_think else None
         self.llm = GatedLLM(OllamaLLMClient(
+            base_url=settings.ollama_base_url,
+            model=settings.ollama_model,
+            temperature=settings.ollama_temperature,
+            num_ctx=settings.ollama_num_ctx,
+            timeout=settings.ollama_timeout,
+            think=settings.ollama_think,
+            keep_alive=settings.ollama_keep_alive,
+        ), MODEL_GATE, thinker=thinker)
+        self.background_llm = GatedLLM(OllamaLLMClient(
             base_url=settings.ollama_base_url,
             model=settings.ollama_model,
             temperature=settings.ollama_temperature,
@@ -200,7 +221,7 @@ class Container:
                 timeout=settings.table_assist_timeout,
                 enabled=settings.table_assist_enabled,
             ),
-            organizer=DocumentOrganizer(llm=self.llm, enabled=settings.auto_organize_enabled),
+            organizer=DocumentOrganizer(llm=self.background_llm, enabled=settings.auto_organize_enabled),
         )
         self.document_service = DocumentService(
             settings=settings,
@@ -277,6 +298,7 @@ class Container:
             coverage=CoverageValidator(),
             completion=CompletionEngine(self.llm, max_passes=settings.max_completion_passes),
             completeness_retry=settings.completeness_retry,
+            review_answers=settings.answer_review,
             knowledge_service=self.knowledge_service,
             knowledge_arm=self.knowledge_arm,
             knowledge_index=self.knowledge_index,

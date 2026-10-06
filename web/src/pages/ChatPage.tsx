@@ -6,6 +6,7 @@ import { StageIndicator } from '@/components/chat/StageIndicator'
 import { EmptyState, IconButton, Skeleton } from '@/components/ui/primitives'
 import { Icon, type IconName } from '@/components/ui/Icon'
 import { useCurrentUser } from '@/hooks/useAuth'
+import { usePreferences } from '@/state/preferences'
 import { useAsk, StoppedError } from '@/hooks/useAsk'
 import { useHotkeys } from '@/hooks/useHotkeys'
 import { useTranslation } from '@/hooks/useTranslation'
@@ -97,6 +98,7 @@ export function ChatPage() {
           document_ids: documentFilter ? [documentFilter] : null,
           conversation_id: conversationId,
           fresh,
+          deep: usePreferences.getState().deepThinking,
           image_text: picture?.text || null,
           image_marked: picture?.marked || null,
         })

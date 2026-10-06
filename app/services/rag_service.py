@@ -29,7 +29,7 @@ from app.schemas.chat import (
 from app.services import access
 from app.services.activity import ACTIVITY
 from app.services.learning_loop import AnswerMemory
-from app.services.model_gate import AbandonedError
+from app.services.model_gate import AbandonedError, thinking
 from app.services.answer_validation import AnswerValidator
 from app.services.arithmetic import ArithmeticVerifier
 from app.services.in_force import extract_for_documents
@@ -121,6 +121,14 @@ ANALYTIC = re.compile(
     r"\bweakness|\brecommend|\bwhat\s+should\s+we",
     re.IGNORECASE,
 )
+#: Questions that need arithmetic or a comparison worked out from the documents.
+CALCULATION = re.compile(
+    r"احسب|حساب|كم\s+(?:يوم|يومًا|يوما|شهر|شهرًا|سنة|مرة)\s+(?:حتى|إلى|الى|متبقي|باقي)|متى\s+(?:تبلغ|يبلغ|تصل|تنتهي)|"
+    r"إجمالي|اجمالي|مجموع|الفرق\s+بين|المتبقي|الباقي|كم\s+تبقى|كم\s+المتبقي|"
+    r"\bcalculate|\bhow\s+many\s+days|\btotal\b|\bdifference\b|\bremaining\b|\bsum\s+of",
+    re.IGNORECASE,
+)
+
 ANALYSIS_DIRECTIVE = """هذا طلب تحليل لا سؤال عن معلومة. أجب بهذا الترتيب وبهذه العناوين بالضبط:
 ## 📌 الوقائع الثابتة
 ما تنص عليه المصادر حرفيًا ويخص المسألة، كل واقعة برقم مصدرها.
@@ -145,6 +153,37 @@ USER_TEMPLATE = """{facts_block}المصادر:
 السؤال: {question}
 
 {mode_directive}أجب اعتمادًا على ما أُرسل إليك أعلاه فقط. {language_directive}"""
+
+#: The second reading of an answer before it is shown. The check that runs after it can
+#: tell whether a figure appears in the sources, not whether it was given the right name:
+#: a contract value presented as the damages passed it. This reading asks the model to
+#: compare each sentence with the passages, and to rewrite only when something is wrong.
+REVIEW_OK = "سليمة"
+REVIEW_SYSTEM_PROMPT = f"""أنت مراجع دقيق. أمامك مصادر من مستندات الشركة، وسؤال، ومسودة إجابة كتبها مساعد آخر.
+راجع المسودة جملة جملة مقابل المصادر فقط، وتحقق من:
+1. كل رقم أو تاريخ أو اسم موجود في المصادر **ومنسوب إلى ما يصفه به المصدر** — قيمة العقد ليست قيمة الأضرار، والغرامة اليومية ليست الإجمالي.
+2. لا خلط بين شخصين أو جهتين أو حدثين، ولا نقل لصفة أحدهما إلى الآخر.
+3. لا استنتاج مقدّم على أنه نص في المستند، ولا رقم محسوب مقدّم على أنه منقول.
+4. لا معلومة في المصادر تجيب عن السؤال مباشرةً وسقطت من المسودة.
+5. لا تناقض مع المصادر.
+
+إن كانت المسودة سليمة في كل ما سبق، فاكتب كلمة واحدة فقط: {REVIEW_OK}
+وإن وجدت خطأً، فاكتب الإجابة المصحَّحة كاملة فقط — بنفس لغة المسودة وتنسيقها وأرقام مصادرها [n] — دون أي شرح لما غيّرته، ودون إضافة أي معلومة ليست في المصادر."""
+
+REVIEW_TEMPLATE = """المصادر:
+
+{context}
+
+---
+
+السؤال: {question}
+
+المسودة:
+{answer}"""
+
+#: A correction that loses more than this share of the draft is a summary, not a fix.
+REVIEW_MIN_LENGTH_SHARE = 0.5
+
 
 # Compound questions. The parts are listed in the asker's own words and the answer is
 # asked to follow them, because a model given "ما X وما Y ومتى Z؟" as one sentence tends
@@ -309,6 +348,7 @@ class RagService:
         coverage: CoverageValidator,
         completion: CompletionEngine,
         completeness_retry: bool = True,
+        review_answers: bool = False,
         knowledge_service: KnowledgeService | None = None,
         knowledge_arm: KnowledgeArm | None = None,
         knowledge_index: KnowledgeVectorIndex | None = None,
@@ -340,6 +380,8 @@ class RagService:
         # and records nothing.
         self.metrics = metrics
         self.completeness_retry = completeness_retry
+        #: A second reading of every answer against its sources before it is shown.
+        self.review_answers = review_answers
         self.knowledge_service = knowledge_service
         self.knowledge_arm = knowledge_arm
         self.knowledge_index = knowledge_index
@@ -388,6 +430,14 @@ class RagService:
             )
         # Background jobs that need the model wait while anyone is waiting on an answer.
         ticket = ACTIVITY.begin(getattr(user, "id", None))
+        # Deep thinking when the reader asked for it — and, for a person asking in the
+        # chat, whenever the question needs reasoning: a calculation or an assessment.
+        # Measured: "how many days until the penalty reaches its cap" came back "30" from
+        # the quick path, its review let it through, and the deep path said 135, right.
+        deep = bool(request.deep) or (
+            channel in ("chat", "stream", "file") and self._needs_reasoning(request.question)
+        )
+        thinking(deep)
         asked = request
         prepared = None
         # A picture's words make this question about that picture: answered afresh,
@@ -417,7 +467,7 @@ class RagService:
             follow_up = prepared is not None and prepared.follow_up
             # A follow-up's answer depends on its conversation, so it is neither
             # answered from memory nor kept there.
-            response = None if follow_up or request.fresh else self._remembered(request, user)
+            response = None if follow_up or request.fresh or deep else self._remembered(request, user)
             if response is None:
                 response = self._answer(request, user)
                 if follow_up and prepared.document_ids and not response.grounded and not response.retrieved_chunks:
@@ -443,6 +493,7 @@ class RagService:
                 )
             raise
         finally:
+            thinking(False)
             ACTIVITY.end(ticket)
         self._log_question(asked, user, prepared, response, reusable=not pictured)
         if self.metrics is not None:
@@ -770,6 +821,15 @@ class RagService:
                 timings["part_completion_ms"] = self._elapsed_ms(parts_started)
                 passes += 1
 
+        if getattr(self, "review_answers", False):
+            review_started = time.perf_counter()
+            reviewed = self._review(analysis, answer, context, window, sources, facts)
+            timings["review_ms"] = self._elapsed_ms(review_started)
+            if reviewed is not None:
+                answer = reviewed
+                passes += 1
+                plan.rewrites = [*plan.rewrites, "راجع النظام إجابته على المصادر وصحّحها قبل عرضها"]
+
         omitted = [self._as_fact(item) for item in coverage.missing]
         validation = self.validator.validate(
             analysis, answer, self._verifiable(context, window), sources, facts,
@@ -808,6 +868,41 @@ class RagService:
             answer_id=answer_id,
             timings_ms=timings,
         )
+
+    def _review(self, analysis, answer: str, context: str, window, sources, facts) -> str | None:
+        """The answer corrected after a sentence-by-sentence reading against its sources,
+        or None when it was right or the correction cannot be trusted.
+
+        A correction is taken only if it is no worse by the deterministic check — no
+        more figures missing from the sources than the draft had — still cites its
+        sources, and has not shrunk into a summary.
+        """
+        try:
+            verdict = self.llm.chat(REVIEW_SYSTEM_PROMPT, REVIEW_TEMPLATE.format(
+                context=context, question=analysis.question, answer=answer,
+            )).strip()
+        except AbandonedError:
+            raise
+        except Exception:  # noqa: BLE001 - the draft stands rather than no answer
+            logger.exception("Answer review failed; the draft stands")
+            return None
+        if not verdict or verdict.strip(" .«»\"'").startswith(REVIEW_OK) or verdict.strip().upper().startswith("OK"):
+            logger.info("Review: the draft stands")
+            return None
+        if self._is_refusal(verdict) or len(verdict) < len(answer) * REVIEW_MIN_LENGTH_SHARE:
+            logger.info("Review: correction rejected (refusal or too short)")
+            return None
+        verifiable = self._verifiable(context, window)
+        before = self.validator.validate(analysis, answer, verifiable, sources, facts)
+        after = self.validator.validate(analysis, verdict, verifiable, sources, facts)
+        if len(after.unsupported_values) > len(before.unsupported_values):
+            logger.info("Review: correction rejected (adds unsupported values %s)", after.unsupported_values)
+            return None
+        if "[" in answer and "[" not in verdict:
+            logger.info("Review: correction rejected (dropped the citations)")
+            return None
+        logger.info("Review: the answer was corrected before it was shown")
+        return verdict
 
     @staticmethod
     def _verifiable(context: str, window) -> str:
@@ -1236,6 +1331,11 @@ class RagService:
             )
             directives.append(PARTS_DIRECTIVE.format(parts=numbered))
         return ("\n".join(directives) + "\n\n") if directives else ""
+
+    @staticmethod
+    def _needs_reasoning(question: str) -> bool:
+        """A question whose answer has to be worked out, not just found."""
+        return bool(ANALYTIC.search(question) or CALCULATION.search(question))
 
     @staticmethod
     def _is_analytic(analysis) -> bool:
@@ -1795,7 +1895,9 @@ class RagService:
                 "Write the answer in English, even if the sources are in Arabic. "
                 "The fallback sentence stays exactly as written in the rules."
             )
-        return "اكتب الإجابة بالعربية، حتى لو كانت المقاطع بالإنجليزية."
+        # Formal Arabic whatever the register of the question: an answer is company
+        # output, and a colloquial question got a colloquial answer.
+        return "اكتب الإجابة بالعربية الفصحى المهنية، حتى لو كُتب السؤال بالعامية أو كانت المقاطع بالإنجليزية."
 
     @staticmethod
     def _is_refusal(answer: str) -> bool:

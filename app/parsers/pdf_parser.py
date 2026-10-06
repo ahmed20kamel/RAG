@@ -31,7 +31,7 @@ from app.core.domain import (
 )
 from app.core.text import detect_language
 from app.exceptions import ExtractionError, OcrRequiredError, ParsingError
-from app.parsers import arabic_pdf, layout_tables, ocr, tables
+from app.parsers import arabic_pdf, layout_tables, ocr, tables, text_quality
 from app.parsers.base import DocumentParser
 
 logger = logging.getLogger(__name__)
@@ -51,6 +51,10 @@ MIN_PICTURE_PIXELS = 400 * 200
 #: Lines read from a picture that carry figures the typed text lacks, needed before any
 #: are added. One stray line is OCR noise; a table brings several.
 MIN_NEW_FIGURE_LINES = 3
+#: A page re-read as an image must keep at least this share of its layer's Arabic
+#: letters: cleaner text that lost a paragraph is not an improvement.
+REREAD_MIN_TEXT = 0.85
+_ARABIC_LETTERS = re.compile(r"[ء-ي]")
 _FIGURE = re.compile(r"\d+(?:[.,]\d+)*")
 #: Letterheads and footers: phone numbers, boxes and copyright lines are figures too, and
 #: a full-page letterhead image puts them on every page.
@@ -141,6 +145,7 @@ class PdfParser(DocumentParser):
             if i not in empty and self._picture_share(page) >= PICTURE_SHARE
         ]
         added = self._add_picture_text(document, extracted, pictured, filename)
+        added += self._reread_damaged(document, extracted, empty, filename)
 
         if not empty:
             return extracted, added
@@ -172,6 +177,36 @@ class PdfParser(DocumentParser):
             )
         logger.info("%s: %s page(s) read by OCR", filename, read)
         return extracted, read + added
+
+    def _reread_damaged(self, document, extracted: list[str], empty: list[int], filename: str) -> int:
+        """Pages whose text layer does not say what the page shows, read as an image.
+
+        Measured on the case files: more than half the pages of the typed PDFs came out
+        with letters split apart, foreign symbols in place of Arabic letters, or "لا"
+        reversed — the final expert report on every page, a date missing outright. The
+        rendered page is read instead, and kept only if it is clearly cleaner and has not
+        lost text: recognition is not perfect, and a page it reads worse keeps its layer.
+        """
+        if not self.enable_ocr or not ocr.capability().available:
+            return 0
+        replaced = 0
+        for index, text in enumerate(extracted):
+            if index in empty:
+                continue
+            before = text_quality.damage(text)
+            if before < text_quality.DAMAGED:
+                continue
+            read = ocr.read_page(document[index])
+            if not read:
+                continue
+            letters_before = len(_ARABIC_LETTERS.findall(text))
+            letters_after = len(_ARABIC_LETTERS.findall(read))
+            if text_quality.damage(read) <= before / 2 and letters_after >= letters_before * REREAD_MIN_TEXT:
+                extracted[index] = read
+                replaced += 1
+        if replaced:
+            logger.info("%s: %s page(s) with a damaged text layer read as images", filename, replaced)
+        return replaced
 
     @staticmethod
     def _picture_share(page) -> float:

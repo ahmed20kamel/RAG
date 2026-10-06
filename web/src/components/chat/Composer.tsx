@@ -9,6 +9,7 @@ import { toast } from '@/state/toasts'
 import type { ChatPicture } from '@/types/api'
 import { PictureMarker } from './PictureMarker'
 import { cx } from '@/utils/cx'
+import { usePreferences } from '@/state/preferences'
 
 const MAX_ROWS_HEIGHT = 200
 
@@ -101,6 +102,8 @@ export const Composer = forwardRef<HTMLTextAreaElement, ComposerProps>(function 
 
   const recording = recorder.state === 'recording'
   const [dragging, setDragging] = useState(false)
+  const deep = usePreferences((state) => state.deepThinking)
+  const toggleDeep = usePreferences((state) => state.toggleDeepThinking)
 
   /** A picture pasted or dropped goes straight to the marker, as one chosen from disk. */
   const takePicture = (files: FileList | null | undefined): boolean => {
@@ -206,6 +209,18 @@ export const Composer = forwardRef<HTMLTextAreaElement, ComposerProps>(function 
           />
         )}
         {transcribing && <Spinner size={15} />}
+        {!recording && !pending && (
+          <button
+            type="button"
+            className={cx('composer__deep', deep && 'is-on')}
+            onClick={toggleDeep}
+            aria-pressed={deep}
+            title={t('chat.deepHint')}
+          >
+            <Icon name="sparkles" size={14} />
+            <span>{t('chat.deep')}</span>
+          </button>
+        )}
         {!recording && !pending && (
           <IconButton icon="mic" label={t('voice.menu')} onClick={voice} disabled={disabled || transcribing} />
         )}

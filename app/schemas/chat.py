@@ -168,6 +168,9 @@ class ChatRequest(BaseModel):
     conversation_id: str | None = Field(default=None, max_length=64)
     #: Asked for again ("regenerate"): answered afresh, never from memory.
     fresh: bool = False
+    #: "Deep thinking": the model reasons before it answers and before it reviews. Slower
+    #: by minutes; chosen by the reader for the questions that matter.
+    deep: bool = False
     #: Words read from a picture the reader attached, and from the part they marked on
     #: it (POST /api/chat/picture). The picture itself is never sent with the question.
     image_text: str | None = Field(default=None, max_length=8000)

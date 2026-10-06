@@ -3,6 +3,7 @@ import { Icon } from '@/components/ui/Icon'
 import { Spinner } from '@/components/ui/primitives'
 import { useTranslation } from '@/hooks/useTranslation'
 import type { ChatLoad, ChatStage } from '@/types/api'
+import { usePreferences } from '@/state/preferences'
 
 /** Past this, a wait with no one ahead is said to be longer than usual. */
 const SLOW_FACTOR = 1.5
@@ -30,6 +31,7 @@ export function StageIndicator({
   const current = stages[stages.length - 1]
   const finished = stages.slice(0, -1)
   const now = useNow(startedAt !== null)
+  const deep = usePreferences((state) => state.deepThinking)
 
   const elapsed = startedAt === null ? 0 : Math.max(0, Math.round((now - startedAt) / 1000))
   const remaining = load ? Math.max(0, load.waitSeconds - Math.round((now - load.at) / 1000)) : 0
@@ -47,7 +49,13 @@ export function StageIndicator({
         <Icon name="sparkles" size={15} />
       </span>
       <div className="msg__column">
-        {(queued || slow) && (
+        {deep && !queued && (
+          <p className="deep-notice">
+            <Icon name="sparkles" size={13} />
+            {t('chat.deepWorking')}
+          </p>
+        )}
+        {(queued || (slow && !deep)) && (
           <div className="load-notice" role="status" aria-live="polite">
             <Icon name="clock" size={15} />
             <div>

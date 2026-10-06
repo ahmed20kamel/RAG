@@ -34,6 +34,12 @@ def watch(event: threading.Event | None) -> None:
     _current.event = event
 
 
+def thinking(on: bool) -> None:
+    """Whether this thread's model calls think before they answer — the reader's "deep
+    thinking" choice for one question. Set by the answer pipeline, cleared after it."""
+    _current.deep = on
+
+
 def abandoned() -> bool:
     event = getattr(_current, "event", None)
     return event is not None and event.is_set()
@@ -78,9 +84,11 @@ class GatedLLM:
     """The model client, behind the gate. Everything but `chat` passes straight through,
     so whatever reads `.model` or `.health()` sees the client it always saw."""
 
-    def __init__(self, inner, gate: ModelGate) -> None:
+    def __init__(self, inner, gate: ModelGate, thinker=None) -> None:
         self._inner = inner
         self._gate = gate
+        #: The same model asked to think first, used for a question asked in deep mode.
+        self._thinker = thinker
 
     def __getattr__(self, name: str):
         return getattr(self._inner, name)
@@ -88,9 +96,10 @@ class GatedLLM:
     def chat(self, system_prompt: str, user_prompt: str) -> str:
         if abandoned():
             raise AbandonedError("انصرف السائل؛ لم يُولَّد شيء.")
+        client = self._thinker if self._thinker is not None and getattr(_current, "deep", False) else self._inner
         self._gate.acquire()
         try:
-            return self._inner.chat(system_prompt, user_prompt)
+            return client.chat(system_prompt, user_prompt)
         finally:
             self._gate.release()
 

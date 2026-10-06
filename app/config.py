@@ -160,6 +160,14 @@ class Settings(BaseSettings):
     #: Speech to text for the chat's microphone, run on this machine (faster-whisper):
     #: the browser's own dictation sends the audio to an outside service. "small" reads
     #: Arabic acceptably on a CPU in a few seconds; "medium" reads it better, slower.
+    #: Every answer is read again against its sources before it is shown (a minute or
+    #: so). "Deep thinking" — the reader's choice per question — also has the model think
+    #: before it writes and reviews: minutes, measured at 3 to 19 on this machine.
+    answer_think: bool = True
+    answer_review: bool = True
+    #: Thinking makes a single answer longer than the request timeout that suited the
+    #: plain one.
+    answer_timeout: float = 900.0
     speech_enabled: bool = True
     speech_model: str = "small"
     #: "ar" for Arabic; empty to let the model detect the language of each recording.
