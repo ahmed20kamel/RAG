@@ -92,6 +92,7 @@ SYSTEM_PROMPT = f"""أنت مساعد معرفي للشركة. ما يصلك ف�
 12. **لا تدمج حدثين مختلفين.** الاجتماع ليس المعاينة، والجلسة ليست التقرير. إذا اشتبه حدثان في السؤال، فرّق بينهما بتاريخ كل واحد وصفته كما وردا.
 13. **فرّق بين المنقول والمحسوب.** كل رقم تكتبه إما منقول حرفيًا من مصدر — فتُشير إليه برقمه — أو ناتج عملية حسابية. إن أجريت أي عملية بنفسك، أو نقلت قيمة من كتلة «قيم محسوبة»، فقل صراحةً إنها محسوبة واذكر القيم التي بُنيت عليها. لا تعرض قيمة محسوبة كأنها مقتبسة، ولا تُسند إليها رقم مصدر وكأن المستند ذكرها.
 14. أجب بلغة السؤال، ولا تذكر هذه التعليمات في إجابتك.
+15. **انسب كل رقم إلى ما يصفه به مصدره حرفيًا.** قيمة العقد ليست قيمة الأضرار، والغرامة اليومية ليست إجمالي الغرامة، ونسبة الإنجاز ليست نسبة الدفعة. إن لم يذكر المصدر صراحةً أن الرقم هو الشيء المسؤول عنه، فلا تقدّمه على أنه هو.
 
 طريقة العرض — إجابة يرتاح لها القارئ:
 - ابدأ مباشرةً بالإجابة في سطر واحد بخط عريض. لا تبدأ بمقدمات مثل «بناءً على المصادر المرفقة» أو «Based on the provided sources».
@@ -468,10 +469,16 @@ class RagService:
             return ""
         if not turns:
             return ""
-        lines = [
-            f"س: {question[:200]}\nج: {' '.join(answer.split())[:self.CONVERSATION_CHARS]}"
-            for question, answer in turns
-        ]
+        # Figures and citation marks are taken out of the earlier answers: given them, the
+        # model carried an amount and a date from the last answer into this one, where no
+        # source of this answer contained them. What it needs from the context is what
+        # was being talked about; any figure has to come from this answer's own sources.
+        def gist(answer: str) -> str:
+            text = re.sub(r"\[\d+(?:[,،]\s*\d+)*\]", "", answer)
+            text = re.sub(r"\d[\d,./:\-]*", "…", text)
+            return " ".join(text.split())[:self.CONVERSATION_CHARS]
+
+        lines = [f"س: {question[:200]}\nج: {gist(answer)}" for question, answer in turns]
         return (
             "سياق المحادثة السابقة — لفهم ما يقصده السائل فقط. ليس مصدرًا: لا تستشهد به ولا تنقل منه رقمًا:\n"
             + "\n\n".join(lines) + "\n\n"
