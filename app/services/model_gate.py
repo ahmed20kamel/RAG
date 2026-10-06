@@ -14,6 +14,7 @@ timed from when its turn starts.
 from __future__ import annotations
 
 import threading
+import time
 from collections import deque
 
 from app.exceptions import RagError
@@ -58,14 +59,19 @@ class ModelGate:
         with self._condition:
             return len(self._waiting)
 
-    def acquire(self) -> None:
+    def acquire(self, timeout: float | None = None) -> None:
+        """Wait for the model's turn. With `timeout`, give up after that many seconds by
+        raising TimeoutError — for work that has a cheaper way to do without the model."""
         me = object()
+        deadline = None if timeout is None else time.monotonic() + timeout
         with self._condition:
             self._waiting.append(me)
             try:
                 while self._busy or self._waiting[0] is not me:
                     if abandoned():
                         raise AbandonedError("انصرف السائل قبل دوره؛ لم يُولَّد شيء.")
+                    if deadline is not None and time.monotonic() > deadline:
+                        raise TimeoutError("the model stayed busy")
                     self._condition.wait(timeout=1.0)
             except BaseException:
                 self._waiting.remove(me)

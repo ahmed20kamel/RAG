@@ -175,6 +175,8 @@ class ChatRequest(BaseModel):
     #: it (POST /api/chat/picture). The picture itself is never sent with the question.
     image_text: str | None = Field(default=None, max_length=8000)
     image_marked: str | None = Field(default=None, max_length=4000)
+    #: What a vision model understood the picture to show.
+    image_vision: str | None = Field(default=None, max_length=8000)
 
 
 class ChatChoice(BaseModel):

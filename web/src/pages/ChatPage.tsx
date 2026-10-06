@@ -101,6 +101,7 @@ export function ChatPage() {
           deep: usePreferences.getState().deepThinking,
           image_text: picture?.text || null,
           image_marked: picture?.marked || null,
+          image_vision: picture?.vision || null,
         })
         if (!response) return
         appendMessage(conversationId, { ...placeholder, content: response.answer, response })

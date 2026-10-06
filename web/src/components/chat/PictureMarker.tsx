@@ -135,6 +135,7 @@ export function PictureMarker({
         thumbnail: thumb.toDataURL('image/jpeg', 0.75),
         text: read.text,
         marked: read.marked,
+        vision: read.vision ?? '',
         hasText: read.has_text,
       })
     } catch (failure) {

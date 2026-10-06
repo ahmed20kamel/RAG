@@ -136,9 +136,11 @@ export const Composer = forwardRef<HTMLTextAreaElement, ComposerProps>(function 
             <span className={picture.hasText ? undefined : 'composer__attachment-warn'}>
               {picture.marked
                 ? t('picture.markedRead', { text: picture.marked.slice(0, 90) })
-                : picture.hasText
-                  ? t('picture.textRead')
-                  : t('picture.noText')}
+                : picture.vision
+                  ? t('picture.understood', { text: firstLine(picture.vision) })
+                  : picture.hasText
+                    ? t('picture.textRead')
+                    : t('picture.noText')}
             </span>
           </div>
           <IconButton icon="close" label={t('picture.remove')} size="sm" onClick={() => setPicture(null)} />
@@ -258,3 +260,9 @@ export const Composer = forwardRef<HTMLTextAreaElement, ComposerProps>(function 
     </div>
   )
 })
+
+/** The vision model's first sentence: what kind of picture it is. */
+function firstLine(text: string): string {
+  const line = text.replace(/^[\s\d).*#-]+/, '').split(/\n|(?<=[.!؟?])\s/)[0] ?? ''
+  return line.length > 110 ? `${line.slice(0, 110)}…` : line
+}

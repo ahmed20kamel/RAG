@@ -168,6 +168,11 @@ class Settings(BaseSettings):
     #: Thinking makes a single answer longer than the request timeout that suited the
     #: plain one.
     answer_timeout: float = 900.0
+    #: A picture sent in the chat is understood by a vision model on the same server —
+    #: what it is and what it shows — as well as read word for word by OCR. Measured on
+    #: screenshots: the kind of screen, the file names, the error message, in ~25 s.
+    vision_enabled: bool = True
+    vision_model: str = "qwen2.5vl:7b"
     speech_enabled: bool = True
     speech_model: str = "small"
     #: "ar" for Arabic; empty to let the model detect the language of each recording.

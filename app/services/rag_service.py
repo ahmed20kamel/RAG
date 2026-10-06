@@ -121,6 +121,14 @@ ANALYTIC = re.compile(
     r"\bweakness|\brecommend|\bwhat\s+should\s+we",
     re.IGNORECASE,
 )
+#: A picture the reader sent: understood first, then related to what they are asking.
+PICTURE_DIRECTIVE = """أرفق السائل صورة، وهي المصدر المسمّى «الصورة المرفقة». افهم أولًا ما تعرضه وما علاقتها بسؤاله وبسياق المحادثة.
+- إن كان السؤال عن الصورة نفسها (ما هذا، ماذا يعني، اشرح، ما الخطأ…) فأجب منها أولًا.
+- وإن كان يتعلق بملفات الشركة، فاربط ما في الصورة بالمصادر الأخرى وبيّن ما يتفق وما يختلف.
+- للأرقام والنصوص اعتمد «النص المنسوخ حرفيًا» إن اختلف عن وصف نموذج الرؤية.
+
+"""
+
 #: Questions that need arithmetic or a comparison worked out from the documents.
 CALCULATION = re.compile(
     r"احسب|حساب|كم\s+(?:يوم|يومًا|يوما|شهر|شهرًا|سنة|مرة)\s+(?:حتى|إلى|الى|متبقي|باقي)|متى\s+(?:تبلغ|يبلغ|تصل|تنتهي)|"
@@ -442,7 +450,8 @@ class RagService:
         prepared = None
         # A picture's words make this question about that picture: answered afresh,
         # and neither answered from memory nor kept there for the bare wording.
-        pictured = bool((request.image_marked or "").strip() or (request.image_text or "").strip())
+        pictured = bool((request.image_marked or "").strip() or (request.image_text or "").strip()
+                        or (request.image_vision or "").strip())
         try:
             # What this person asked before shapes what is searched now: a follow-up is
             # read in the context of the question it follows, and a wording that once
@@ -459,7 +468,7 @@ class RagService:
 
                 request = request.model_copy(update={
                     "question": attach_picture_text(
-                        request.question, request.image_text or "", request.image_marked or "",
+                        request.question, request.image_text or request.image_vision or "", request.image_marked or "",
                         english=language_of(asked.question) == "en",
                     ),
                     "fresh": True,
@@ -665,11 +674,11 @@ class RagService:
             candidates = self._with_document_header(request.document_ids[0], candidates)
 
         picture = None
-        if (request.image_text or "").strip() or (request.image_marked or "").strip():
+        if (request.image_text or "").strip() or (request.image_marked or "").strip() or (request.image_vision or "").strip():
             from app.services.chat_attachments import picture_evidence
 
             picture = picture_evidence(request.image_text or "", request.image_marked or "",
-                                       english=analysis.language == "en")
+                                       english=analysis.language == "en", vision=request.image_vision or "")
         if candidates and not chose_files and picture is None:
             unclear = self._which_file(analysis, candidates, plan, timings)
             if unclear is not None:
@@ -747,6 +756,7 @@ class RagService:
                 context=context,
                 question=analysis.question,
                 mode_directive=self._mode_directive(analysis)
+                + (PICTURE_DIRECTIVE if any(s.document_id == "attached-picture" for s in sources) else "")
                 + self._knowledge_directive(contribution),
                 language_directive=self._language_directive(analysis.question),
             ),

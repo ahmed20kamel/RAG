@@ -1,0 +1,1 @@
+import{a}from"./index-CQcdStuT.js";const e={quality:t=>a.get(`/api/admin/quality?days=${t}`),get:t=>a.get(`/api/admin/monitoring?days=${t}`),latestReport:()=>a.get("/api/admin/reports/latest"),indexHealth:()=>a.get("/api/admin/index-health")};export{e as m};

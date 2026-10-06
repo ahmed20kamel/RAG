@@ -22,7 +22,7 @@ export const chatApi = {
     const form = new FormData()
     form.append('file', file, 'picture.jpg')
     form.append('marks', JSON.stringify(marks))
-    return api.post<{ text: string; marked: string; has_text: boolean }>('/api/chat/picture', form)
+    return api.post<{ text: string; marked: string; vision?: string; has_text: boolean }>('/api/chat/picture', form)
   },
 
   /** Speech to text on the server; the text returns to the input box for review. */

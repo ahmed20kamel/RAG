@@ -157,6 +157,7 @@ export interface ChatRequest {
   /** Words read from an attached picture, and from the part marked on it. */
   image_text?: string | null
   image_marked?: string | null
+  image_vision?: string | null
 }
 
 
@@ -384,6 +385,8 @@ export interface ChatPicture {
   thumbnail: string
   text: string
   marked: string
+  /** What the vision model understood the picture to show. */
+  vision?: string
   hasText: boolean
 }
 

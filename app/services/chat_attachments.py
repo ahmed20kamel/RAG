@@ -48,13 +48,71 @@ class Mark:
 class ReadPicture:
     text: str
     marked: list[str]
+    #: What a vision model understood the picture to be and to show.
+    vision: str = ""
 
     @property
     def has_text(self) -> bool:
-        return bool(self.text.strip() or any(m.strip() for m in self.marked))
+        return bool(self.text.strip() or self.vision.strip() or any(m.strip() for m in self.marked))
 
 
-def read_picture(data: bytes, marks: list[Mark]) -> ReadPicture:
+VISION_PROMPT = (
+    "أرسل مستخدم هذه الصورة في محادثة مع نظام يجيب من مستندات شركة مقاولات. صف ما فيها لمن لا يراها، بالعربية:\n"
+    "1) ما نوعها في سطر واحد (لقطة شاشة لمحادثة أو برنامج، جدول، مستند، رسم هندسي، صورة موقع، رسالة خطأ…).\n"
+    "2) أهم ما تعرضه: النصوص والأرقام والعناوين الظاهرة، حرفيًا قدر الإمكان، والجداول كجدول Markdown.\n"
+    "3) إن كانت فيها رسالة خطأ أو تنبيه أو حالة نظام، فاذكرها بوضوح.\n"
+    "لا تذكر شيئًا غير ظاهر في الصورة، ولا تستنتج ما لا تراه."
+)
+#: How long a picture waits for the model before it settles for OCR alone.
+VISION_WAIT_SECONDS = 45
+VISION_MARKED_NOTE = "\nالصورة الثانية جزء من الأولى علّمه المستخدم بنفسه: ابدأ بوصفه، فهو ما يقصده."
+
+
+def describe_picture(picture, marked_crops: list, base_url: str, model: str, timeout: float = 120.0) -> str:
+    """What a vision model sees in the picture, or an empty string when it is not available.
+
+    Passed through the model gate like any other model call: the vision model shares the
+    graphics card, and two models loading at once would slow both.
+    """
+    import base64
+
+    import httpx
+
+    from app.services.model_gate import MODEL_GATE
+
+    def encode(image) -> str:
+        buffer = io.BytesIO()
+        image.save(buffer, format="JPEG", quality=88)
+        return base64.b64encode(buffer.getvalue()).decode()
+
+    images = [encode(picture)] + [encode(crop) for crop in marked_crops[:1]]
+    prompt = VISION_PROMPT + (VISION_MARKED_NOTE if len(images) > 1 else "")
+    try:
+        # Not behind a long answer: a picture read by OCR alone, now, beats one understood
+        # fifteen minutes later.
+        MODEL_GATE.acquire(timeout=VISION_WAIT_SECONDS)
+    except TimeoutError:
+        logger.info("The model is busy; the picture is read by OCR alone")
+        return ""
+    try:
+        response = httpx.post(f"{base_url.rstrip('/')}/api/chat", json={
+            "model": model, "stream": False, "keep_alive": "10m",
+            "options": {"temperature": 0.1, "num_ctx": 8192},
+            "messages": [{"role": "user", "content": prompt, "images": images}],
+        }, timeout=timeout)
+        response.raise_for_status()
+        return ((response.json().get("message") or {}).get("content") or "").strip()
+    except Exception as exc:  # noqa: BLE001 - the picture is still read by OCR
+        # Typically the text model is busy and cannot be moved off the graphics card to
+        # load this one: measured, the request then waits until it times out. Two minutes
+        # at most, and the picture's text — read by OCR — still answers the question.
+        logger.warning("The vision model could not describe the picture (%s); OCR alone", type(exc).__name__)
+        return ""
+    finally:
+        MODEL_GATE.release()
+
+
+def read_picture(data: bytes, marks: list[Mark], vision: tuple[str, str] | None = None) -> ReadPicture:
     from PIL import Image, ImageOps
 
     from app.parsers.ocr import read_image
@@ -69,6 +127,7 @@ def read_picture(data: bytes, marks: list[Mark]) -> ReadPicture:
         raise ValidationError("تعذّر فتح الصورة. أرسل صورة PNG أو JPG.") from exc
 
     marked: list[str] = []
+    crops = []
     for mark in marks[:6]:
         left = max(0.0, mark.x - MARK_PADDING) * picture.width
         top = max(0.0, mark.y - MARK_PADDING) * picture.height
@@ -76,8 +135,11 @@ def read_picture(data: bytes, marks: list[Mark]) -> ReadPicture:
         bottom = min(1.0, mark.y + mark.h + MARK_PADDING) * picture.height
         if right - left < 8 or bottom - top < 8:
             continue
-        marked.append(read_image(picture.crop((round(left), round(top), round(right), round(bottom)))))
-    return ReadPicture(text=read_image(picture), marked=[m for m in marked if m.strip()])
+        crop = picture.crop((round(left), round(top), round(right), round(bottom)))
+        crops.append(crop)
+        marked.append(read_image(crop))
+    seen = describe_picture(picture, crops, *vision) if vision else ""
+    return ReadPicture(text=read_image(picture), marked=[m for m in marked if m.strip()], vision=seen)
 
 
 #: How much of the picture's text joins the question itself — enough for the search to
@@ -107,7 +169,7 @@ def attach_picture_text(question: str, text: str, marked: str, english: bool = F
     return question
 
 
-def picture_evidence(text: str, marked: str, english: bool = False):
+def picture_evidence(text: str, marked: str, english: bool = False, vision: str = ""):
     """The picture as a passage the answer may quote and cite, the marked part first.
 
     The reader showed it in order to be answered from it: kept out of the evidence, the
@@ -117,7 +179,10 @@ def picture_evidence(text: str, marked: str, english: bool = False):
 
     body = "\n\n".join(part for part in (
         (("The marked part: " if english else "الجزء المعلَّم: ") + marked.strip()) if marked.strip() else "",
-        text.strip(),
+        (("What the picture shows (vision model): " if english else "ما تعرضه الصورة (قراءة نموذج الرؤية): ")
+         + vision.strip()) if vision.strip() else "",
+        (("Its text, read word for word (OCR): " if english else "نصها المنسوخ حرفيًا (OCR): ") + text.strip())
+        if text.strip() else "",
     ) if part)
     if not body:
         return None
@@ -129,6 +194,10 @@ def picture_evidence(text: str, marked: str, english: bool = False):
     )
     candidate.rerank_score = 1.0
     candidate.fused_score = 1.0
+    # Ranked as direct evidence: without an origin it fell to the last tier, after
+    # every document passage, where the context budget could cut it — and a question
+    # about the picture alone was refused with the picture's text never shown.
+    candidate.origins = {"vector", "picture"}
     return candidate
 
 

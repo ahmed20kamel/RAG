@@ -92,6 +92,7 @@ def download_file(file_id: str, container: ContainerDep, user: User = require(Pe
 
 @router.post("/chat/picture")
 async def read_chat_picture(
+    container: ContainerDep,
     file: UploadFile = File(...),
     marks: str = Form(default="[]"),
     _user: User = require(Permission.CHAT_ASK),
@@ -113,8 +114,11 @@ async def read_chat_picture(
     except (ValueError, KeyError, TypeError) as exc:
         raise ValidationError("علامات الصورة غير صالحة.") from exc
     data = await file.read()
-    picture = await run_in_threadpool(read_picture, data, regions)
-    return {"text": picture.text, "marked": " … ".join(picture.marked), "has_text": picture.has_text}
+    settings = container.settings
+    vision = (settings.ollama_base_url, settings.vision_model) if settings.vision_enabled else None
+    picture = await run_in_threadpool(read_picture, data, regions, vision)
+    return {"text": picture.text, "marked": " … ".join(picture.marked), "vision": picture.vision,
+            "has_text": picture.has_text}
 
 
 @router.post("/chat/transcribe")
