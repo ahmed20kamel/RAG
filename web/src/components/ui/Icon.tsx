@@ -52,6 +52,7 @@ export type IconName =
   | 'pen'
   | 'undo'
   | 'download'
+  | 'chart'
 
 const PATHS: Record<IconName, string> = {
   chat: 'M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.9-.9L3 21l1.9-4.1A8.4 8.4 0 0 1 4 12.5a8.4 8.4 0 0 1 9-8.4 8.4 8.4 0 0 1 8 7.4z',
@@ -98,6 +99,7 @@ const PATHS: Record<IconName, string> = {
   pen: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z',
   undo: 'M3 7v6h6M3 13a9 9 0 1 0 3-7.7L3 7',
   download: 'M12 3v12m0 0-4-4m4 4 4-4M3 15v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4',
+  chart: 'M3 3v18h18M7 15l4-4 3 3 6-7',
 }
 
 const FILLED = new Set<IconName>(['stop'])

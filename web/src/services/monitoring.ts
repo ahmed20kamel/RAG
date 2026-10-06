@@ -80,7 +80,56 @@ export interface NightlyReport {
   markdown: string
 }
 
+/** Mirrors `app/services/quality_report.py`. */
+export interface QualityWindow {
+  date: string
+  total: number
+  answered: number
+  refused: number
+  clarified: number
+  errors: number
+  verified: number
+  up: number
+  down: number
+  learned: number
+  answer_rate: number | null
+  verified_rate: number | null
+}
+
+export interface QualityPeriod {
+  questions: number
+  answer_rate: number | null
+  verified_rate: number | null
+  satisfaction: number | null
+  up: number
+  down: number
+  remembered: number
+  median_seconds: number | null
+  users: number
+}
+
+export interface QualityReport {
+  days: number
+  series: QualityWindow[]
+  totals: QualityPeriod
+  this_week: QualityPeriod
+  last_week: QualityPeriod
+  learned: {
+    corrections: number
+    terms: number
+    from_rephrasing: number
+    other: number
+    wordings: number
+    follow_ups: number
+    shared_pending: number
+    active_personal: number
+  }
+  unanswered: Array<{ question: string; count: number }>
+  disliked: Array<{ question: string; answer: string; date: string }>
+}
+
 export const monitoringApi = {
+  quality: (days: number) => api.get<QualityReport>(`/api/admin/quality?days=${days}`),
   get: (days: number) => api.get<MonitoringResponse>(`/api/admin/monitoring?days=${days}`),
   latestReport: () => api.get<NightlyReport>('/api/admin/reports/latest'),
   indexHealth: () => api.get<{ markdown: string }>('/api/admin/index-health'),

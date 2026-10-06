@@ -1,0 +1,225 @@
+.quality-subtitle {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  max-inline-size: 48rem;
+}
+
+.quality-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-block-end: var(--space-4);
+}
+
+.quality-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.quality-kpi__icon {
+  display: grid;
+  place-items: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.quality-kpi__label {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.quality-kpi__value {
+  font-size: 1.75rem;
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.quality-kpi__delta {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+.quality-kpi__delta.is-good {
+  color: var(--success, #1b7a3d);
+}
+
+.quality-kpi__delta.is-bad {
+  color: var(--danger, #c62828);
+}
+
+.quality-kpi__hint {
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+}
+
+.quality-chart {
+  inline-size: 100%;
+  block-size: auto;
+}
+
+.quality-chart__grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.quality-chart__axis {
+  font-size: 10px;
+  fill: var(--text-tertiary);
+}
+
+.quality-chart__bar {
+  fill: var(--accent-soft);
+}
+
+.quality-chart__line {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.quality-chart__line--answer {
+  stroke: var(--accent);
+}
+
+.quality-chart__line--verified {
+  stroke: #1b7a3d;
+  stroke-dasharray: 5 4;
+}
+
+.quality-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.quality-legend__key {
+  display: inline-block;
+  inline-size: 1rem;
+  block-size: 0.25rem;
+  border-radius: 2px;
+  margin-inline-start: var(--space-3);
+}
+
+.quality-legend__key--answer {
+  background: var(--accent);
+}
+
+.quality-legend__key--verified {
+  background: #1b7a3d;
+}
+
+.quality-legend__key--volume {
+  background: var(--accent-soft);
+  block-size: 0.6rem;
+}
+
+.quality-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-block: var(--space-4);
+}
+
+.quality-learned {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.quality-learned li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-block-end: 1px solid var(--border);
+  font-size: var(--text-sm);
+}
+
+.quality-learned li > svg {
+  color: var(--accent-text);
+}
+
+.quality-learned li strong {
+  margin-inline-start: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.quality-list {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.quality-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.quality-count {
+  flex: none;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--warning-soft);
+  color: var(--warning);
+  font-size: var(--text-2xs);
+}
+
+.quality-disliked {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.quality-disliked li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken, var(--canvas));
+  font-size: var(--text-sm);
+}
+
+.quality-disliked li span {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
+.quality-muted {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+@media (max-width: 63.99rem) {
+  .quality-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quality-grid {
+    grid-template-columns: 1fr;
+  }
+}

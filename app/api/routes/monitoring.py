@@ -138,6 +138,14 @@ def index_health_now(container: ContainerDep, _user: User = require(Permission.S
     return {"markdown": "\n".join(index_health(container))}
 
 
+@router.get("/admin/quality")
+def quality(days: int = Query(30, ge=7, le=180), _user: User = require(Permission.SYSTEM_MONITOR)) -> dict:
+    """Answer quality and learning over time — answered, verified, rated, learned."""
+    from app.services.quality_report import quality_report
+
+    return quality_report(days)
+
+
 @router.get("/admin/monitoring")
 def monitoring(
     container: ContainerDep,

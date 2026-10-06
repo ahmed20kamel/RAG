@@ -32,6 +32,7 @@ const NAV: NavItem[] = [
   { to: '/upload', icon: 'upload', label: 'nav.upload' },
   { to: '/settings', icon: 'settings', label: 'nav.settings' },
   { to: '/admin/users', icon: 'shield', label: 'admin.users', permission: 'user.manage' },
+  { to: '/admin/quality', icon: 'chart', label: 'quality.title', permission: 'system.monitor' },
   { to: '/admin/monitoring', icon: 'monitor', label: 'monitor.title', permission: 'system.monitor' },
 ]
 

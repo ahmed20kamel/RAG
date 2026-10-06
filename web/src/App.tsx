@@ -15,6 +15,7 @@ const LibraryPage = lazy(() => import('@/pages/LibraryPage').then((m) => ({ defa
 const KnowledgePage = lazy(() => import('@/pages/KnowledgePage').then((m) => ({ default: m.KnowledgePage })))
 const UploadPage = lazy(() => import('@/pages/UploadPage').then((m) => ({ default: m.UploadPage })))
 const DocumentPage = lazy(() => import('@/pages/DocumentPage').then((m) => ({ default: m.DocumentPage })))
+const QualityPage = lazy(() => import('@/pages/QualityPage').then((m) => ({ default: m.QualityPage })))
 const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const LoginPage = lazy(() => import('@/pages/LoginPage').then((m) => ({ default: m.LoginPage })))
 const UsersPage = lazy(() => import('@/pages/UsersPage').then((m) => ({ default: m.UsersPage })))
@@ -118,6 +119,7 @@ export function App() {
               <Route path="settings" element={<SettingsPage />} />
               <Route path="admin/users" element={<UsersPage />} />
               <Route path="admin/monitoring" element={<MonitoringPage />} />
+              <Route path="admin/quality" element={<QualityPage />} />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>
