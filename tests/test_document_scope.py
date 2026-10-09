@@ -45,6 +45,7 @@ DOCUMENTS = [
     known("insurance", "دليل_العمل_مطالبات_التأمين.md", "دليل العمل", "18/09/2026"),
     known("short", "CP4-MC.pdf", "", "21/09/2026"),
     known("unique", "notes.md", "سجل الاجتماعات الأسبوعية للمشروع", "21/09/2026"),
+    known("report", "تقرير الخبرة النهائي .pdf", "تقرير الخبرة النهائي", "05/10/2026"),
 ]
 SCOPE = DocumentScope(loader=lambda: DOCUMENTS, refresh_seconds=3600)
 
@@ -68,6 +69,11 @@ def names_are_resolved() -> None:
         "حسب FIDIC_Claims_Procedure ما مهلة الإخطار؟": "fidic",
         "في دليل العمل مطالبات التأمين ما الخطوة الأولى؟": "insurance",
         "في سجل الاجتماعات الأسبوعية للمشروع ماذا تقرر؟": "unique",
+        # An Arabic file name is an ordinary phrase: named as what another document is
+        # about, it does not narrow the search to itself.
+        "ما الذي انتهى إليه تقرير الخبرة النهائي بشأن سبب الانهيار؟": "report",
+        "ما أهم دفوع سافكوم في مذكرتها التعقيبية على تقرير الخبرة النهائي؟": "all",
+        "ما اعتراض المدعية على تقرير الخبرة النهائي؟": "all",
     }
     for question, wanted in cases.items():
         got = resolved(question)

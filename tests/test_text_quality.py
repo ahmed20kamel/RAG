@@ -17,7 +17,10 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", line_buffering=True)
 
-from app.parsers.text_quality import DAMAGED, damage  # noqa: E402
+from collections import Counter  # noqa: E402
+
+from app.parsers.text_quality import DAMAGED, SWAPPED, damage, swapped  # noqa: E402
+from app.parsers.text_repair import logical_grid, unswap_letters, visual_to_logical  # noqa: E402
 
 FAILURES: list[str] = []
 
@@ -47,6 +50,31 @@ def main() -> int:
     check(damage(REVERSED) >= DAMAGED, "a reversed «لا» is damage", str(damage(REVERSED)))
     check(damage(ENGLISH) == 0.0, "English and figures are not judged", str(damage(ENGLISH)))
     check(damage("قصير") == 0.0, "too little text to judge is not damage")
+
+    # A ligature font swaps lam with the next letter (the Safcom memo on the final report).
+    memo = ("عناية حمكمة ابوظبي التجارية االبتدائي املوقرة مذكرة تعقيبية علي تقرير اخلربة النهائي "
+            "مقدمة من املدعي عليها ضد املدعي ويمثلها قانونا املدير العام وحيث ان اخلبري املنتدب "
+            "قد انتهى في تقريره الى ان سبب االنهيار هو عدم التاسيس على املنسوب الصحيح")
+    check(swapped(memo) >= SWAPPED, "an article with its lam swapped is detected", str(swapped(memo)))
+    check(swapped(CLEAN) < SWAPPED, "clean Arabic shows no swapped letters", str(swapped(CLEAN)))
+    vocabulary = Counter("محكمة الموقرة الخبرة المدعي الخبير".split())
+    fixed = unswap_letters(memo, vocabulary)
+    check("محكمة" in fixed and "الموقرة" in fixed and "الخبرة" in fixed and "المدعي عليها" in fixed,
+          "swapped letters are put back from the document's own words", fixed[:90])
+    check(unswap_letters("قرأ الطالب الدرس", vocabulary) == "قرأ الطالب الدرس",
+          "a word the vocabulary does not explain is left as it is")
+
+    # Table cells stored in drawing order (the expert reports and the delay schedule).
+    check(visual_to_logical("ن؈هاش دمحأ دمحم دمحم ماصع") == "عصام محمد محمد أحمد شاهين",
+          "a reversed name reads right", visual_to_logical("ن؈هاش دمحأ دمحم دمحم ماصع"))
+    check(visual_to_logical("موي/مهرد 1,985.19") == "1,985.19 درهم/يوم",
+          "figures keep their digits when the line is turned", visual_to_logical("موي/مهرد 1,985.19"))
+    reversed_grid = [["م", "دنبلا", "ةدحولا"], ["1", "رادج ةنايص", "ةيمكلا"], ["Name", "ن؈هاش دمحأ", "ةمارغلا"]]
+    turned = logical_grid(reversed_grid)
+    check(turned[0][1] == "البند" and turned[2][1] == "أحمد شاهين" and turned[2][0] == "Name",
+          "a reversed table is turned, names and Latin cells included", str(turned))
+    upright = [["البند", "الوحدة", "الكمية"], ["صيانة جدار", "متر", "35"]]
+    check(logical_grid(upright) == upright, "a table already in reading order is left alone")
 
     print()
     if FAILURES:

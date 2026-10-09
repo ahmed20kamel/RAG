@@ -6,6 +6,7 @@ import logging
 import re
 import time
 import uuid
+from collections import Counter
 
 from app.core.evidence import EvidenceItem
 from app.core.number_words import digit_forms
@@ -93,6 +94,8 @@ SYSTEM_PROMPT = f"""أنت مساعد معرفي للشركة. ما يصلك ف�
 13. **فرّق بين المنقول والمحسوب.** كل رقم تكتبه إما منقول حرفيًا من مصدر — فتُشير إليه برقمه — أو ناتج عملية حسابية. إن أجريت أي عملية بنفسك، أو نقلت قيمة من كتلة «قيم محسوبة»، فقل صراحةً إنها محسوبة واذكر القيم التي بُنيت عليها. لا تعرض قيمة محسوبة كأنها مقتبسة، ولا تُسند إليها رقم مصدر وكأن المستند ذكرها.
 14. أجب بلغة السؤال، ولا تذكر هذه التعليمات في إجابتك.
 15. **انسب كل رقم إلى ما يصفه به مصدره حرفيًا.** قيمة العقد ليست قيمة الأضرار، والغرامة اليومية ليست إجمالي الغرامة، ونسبة الإنجاز ليست نسبة الدفعة. إن لم يذكر المصدر صراحةً أن الرقم هو الشيء المسؤول عنه، فلا تقدّمه على أنه هو.
+16. **البند في جدول يُعرض بصفّه كاملًا.** إذا سُئلت عن سعر بند أو كميته أو قيمته في جدول، فاذكر كل ما ورد في صفّه: رقم البند ووصفه ووحدته وكميته وسعره وإجماليه، كما وردت حرفيًا، وبيّن أي خانة فارغة أو غير مقروءة بدل أن تملأها.
+17. **الخصوم يُذكرون في المستندات القضائية بصفاتهم.** «المدعية» و«المدعى عليها» و«الخصم» هي أسماء أطراف بعينها. إن سُئلت عن طرف باسمه، فاعرف صفته من المصادر (مثل «المدعى عليها: سافكوم…») واعتبر ما ورد عن صاحب هذه الصفة واردًا عنه، ولا تقل إن الاسم لم يُذكر ما دامت صفته مذكورة.
 
 طريقة العرض — إجابة يرتاح لها القارئ:
 - ابدأ مباشرةً بالإجابة في سطر واحد بخط عريض. لا تبدأ بمقدمات مثل «بناءً على المصادر المرفقة» أو «Based on the provided sources».
@@ -229,6 +232,10 @@ OVERVIEW_DIRECTIVE = """هذا طلب نظرة عامة، لا سؤال عن م�
 
 #: Opening passages of a named file placed first for an overview of it.
 HEADER_CHUNKS = 2
+#: A document whose opening ranks this high is read whole when it is this short or
+#: shorter: a memo or a letter, not a contract.
+SHORT_DOCUMENT_RANK = 5
+SHORT_DOCUMENT_CHUNKS = 10
 
 PART_NOT_FOUND = "لم أجد في المصادر المرسلة ما يجيب عن هذا الجزء."
 PART_NOT_FOUND_EN = "The sources provided do not answer this part."
@@ -670,6 +677,7 @@ class RagService:
             plan.parts = list(analysis.parts_display)
         if analysis.rewrite_notes:
             plan.rewrites = list(analysis.rewrite_notes)
+        candidates = self._with_short_documents(candidates)
         if analysis.overview and request.document_ids and len(request.document_ids) == 1:
             candidates = self._with_document_header(request.document_ids[0], candidates)
 
@@ -1428,6 +1436,58 @@ class RagService:
         present = {c.chunk_id for c in candidates}
         header = [self.retriever._from_record(row) for row in rows if row.chunk_id not in present]
         return header + candidates
+
+    def _with_short_documents(self, candidates: list) -> list:
+        """A short memo or letter the top results are about is read whole.
+
+        The opening names the document — «مذكرة تعقيبية على تقرير الخبرة النهائي، مقدمة
+        من المدعى عليها» — and is what matches the question; the points it makes are on
+        the pages after, in words the question does not use. Measured: asked for the
+        defendant's defences in that memo, the search ranked its first page fourth and
+        none of the rest, and the answer said the memo was not in the sources. A short
+        document's remaining pages follow its opening, in order.
+        """
+        top = candidates[:SHORT_DOCUMENT_RANK]
+        if not top:
+            return candidates
+        try:
+            with session_scope() as db:
+                # Its opening near the top, or two of its passages: either way the
+                # question is about this document. Measured on the second: the request
+                # to amend the expert's mission ranked four pages high and left out the
+                # one listing the delay penalty the request asked to be assessed.
+                ranked = list(db.scalars(select(ChunkRecord).where(ChunkRecord.chunk_id.in_([c.chunk_id for c in top]))))
+                per_document = Counter(row.document_id for row in ranked)
+                openings = {
+                    row.document_id for row in ranked if row.chunk_index == 0 or per_document[row.document_id] >= 2
+                }
+                pages: dict[str, list] = {}
+                for document_id in openings:
+                    rows = list(db.scalars(
+                        select(ChunkRecord).where(ChunkRecord.document_id == document_id)
+                        .order_by(ChunkRecord.chunk_index).limit(SHORT_DOCUMENT_CHUNKS + 1)
+                    ))
+                    if len(rows) <= SHORT_DOCUMENT_CHUNKS:
+                        pages[document_id] = rows
+        except Exception:  # noqa: BLE001
+            logger.exception("Could not read short documents; retrieval stands")
+            return candidates
+        if not pages:
+            return candidates
+        present = {c.chunk_id for c in candidates}
+        result = []
+        for candidate in candidates:
+            result.append(candidate)
+            rows = pages.pop(candidate.document_id, None)
+            for row in rows or []:
+                if row.chunk_id not in present:
+                    added = self.retriever._from_record(row)
+                    # Ranked as direct evidence: the passages of the document the
+                    # question is about, not loosely related ones the budget may drop.
+                    added.origins = {"whole-document"}
+                    result.append(added)
+                    present.add(row.chunk_id)
+        return result
 
     def _withhold_sensitive(self, question: str, response: ChatResponse) -> None:
         """Mask contact and access details the question did not ask for.

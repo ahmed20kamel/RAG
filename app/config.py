@@ -164,6 +164,16 @@ class Settings(BaseSettings):
     #: so). "Deep thinking" — the reader's choice per question — also has the model think
     #: before it writes and reviews: minutes, measured at 3 to 19 on this machine.
     answer_think: bool = True
+    #: How deep the search goes for an answer. Measured on the company's files: the
+    #: passage that answered "how long is the project", "what did the final judgment
+    #: rule" and "who is the expert" ranked 9th, 13th and 15th — past the 8 an answer
+    #: used to read, so each was answered "not in the sources". Read 16 (24 for broad
+    #: questions), with the context to hold them. Named apart from TOP_K and
+    #: MAX_CONTEXT_CHARS so an older .env setting does not hold them back.
+    answer_top_k: int = 16
+    answer_wide_top_k: int = 24
+    answer_context_chars: int = 30000
+    answer_narrow_context_chars: int = 22000
     answer_review: bool = True
     #: Thinking makes a single answer longer than the request timeout that suited the
     #: plain one.

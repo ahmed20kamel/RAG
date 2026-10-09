@@ -31,7 +31,7 @@ from app.core.domain import (
 )
 from app.core.text import detect_language
 from app.exceptions import ExtractionError, OcrRequiredError, ParsingError
-from app.parsers import arabic_pdf, layout_tables, ocr, tables, text_quality
+from app.parsers import arabic_pdf, layout_tables, ocr, tables, text_quality, text_repair
 from app.parsers.base import DocumentParser
 
 logger = logging.getLogger(__name__)
@@ -55,6 +55,7 @@ MIN_NEW_FIGURE_LINES = 3
 #: letters: cleaner text that lost a paragraph is not an improvement.
 REREAD_MIN_TEXT = 0.85
 _ARABIC_LETTERS = re.compile(r"[ء-ي]")
+_ARABIC_WORD = re.compile(r"[ء-ي]{3,}")
 _FIGURE = re.compile(r"\d+(?:[.,]\d+)*")
 #: Letterheads and footers: phone numbers, boxes and copyright lines are figures too, and
 #: a full-page letterhead image puts them on every page.
@@ -189,24 +190,42 @@ class PdfParser(DocumentParser):
         """
         if not self.enable_ocr or not ocr.capability().available:
             return 0
-        replaced = 0
-        for index, text in enumerate(extracted):
-            if index in empty:
-                continue
+        suspect = [
+            index for index, text in enumerate(extracted)
+            if index not in empty and (
+                text_quality.damage(text) >= text_quality.DAMAGED
+                or text_quality.swapped(text) >= text_quality.SWAPPED
+            )
+        ]
+        reads = {index: ocr.read_page(document[index]) for index in suspect}
+        # The document's own words, as recognised from its images: what a swapped word
+        # is checked against. Recognition drops lines but rarely misspells a word it
+        # keeps, so it is a better spelling list than any general dictionary.
+        vocabulary = Counter(
+            word for read in reads.values() for word in _ARABIC_WORD.findall(read or "")
+        )
+        replaced = repaired = 0
+        for index in suspect:
+            text, read = extracted[index], reads[index]
             before = text_quality.damage(text)
-            if before < text_quality.DAMAGED:
-                continue
-            read = ocr.read_page(document[index])
-            if not read:
-                continue
-            letters_before = len(_ARABIC_LETTERS.findall(text))
-            letters_after = len(_ARABIC_LETTERS.findall(read))
-            if text_quality.damage(read) <= before / 2 and letters_after >= letters_before * REREAD_MIN_TEXT:
-                extracted[index] = read
-                replaced += 1
-        if replaced:
-            logger.info("%s: %s page(s) with a damaged text layer read as images", filename, replaced)
-        return replaced
+            if read:
+                letters_before = len(_ARABIC_LETTERS.findall(text))
+                letters_after = len(_ARABIC_LETTERS.findall(read))
+                if text_quality.damage(read) <= before / 2 and letters_after >= letters_before * REREAD_MIN_TEXT:
+                    extracted[index] = read
+                    replaced += 1
+                    continue
+            # Recognition lost text here (measured: a memo's title line and its parties),
+            # so the layer is kept and only its swapped letters are put back.
+            if text_quality.swapped(text) >= text_quality.SWAPPED and vocabulary:
+                extracted[index] = text_repair.unswap_letters(text, vocabulary)
+                repaired += 1
+        if replaced or repaired:
+            logger.info(
+                "%s: %s damaged page(s) read as images, %s with swapped letters put back",
+                filename, replaced, repaired,
+            )
+        return replaced + repaired
 
     @staticmethod
     def _picture_share(page) -> float:
@@ -319,7 +338,7 @@ class PdfParser(DocumentParser):
                 detected = None
             for table in getattr(detected, "tables", []):
                 try:
-                    grid = tables.normalise_grid(table.extract())
+                    grid = text_repair.logical_grid(tables.normalise_grid(table.extract()))
                 except Exception:  # noqa: BLE001
                     continue
                 if len(grid) >= 2 and len(grid[0]) >= 2:
@@ -328,7 +347,7 @@ class PdfParser(DocumentParser):
             if not grids:
                 try:
                     for recovered in layout_tables.extract(page):
-                        grid = tables.normalise_grid(recovered.rows)
+                        grid = text_repair.logical_grid(tables.normalise_grid(recovered.rows))
                         if len(grid) >= 2 and len(grid[0]) >= 2:
                             grids.append(grid)
                             by_layout += 1

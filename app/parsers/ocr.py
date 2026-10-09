@@ -18,6 +18,7 @@ Nothing here guesses at a page it could not read. An empty result stays empty.
 from __future__ import annotations
 
 import io
+import re
 import logging
 import os
 import shutil
@@ -155,6 +156,83 @@ def read_image(image) -> str:
     return cleaned if len(cleaned) >= MIN_USABLE_CHARS else ""
 
 
+#: A figure as printed: digits, with the separators of amounts, dates and references.
+_FIGURE = re.compile(r"^\d[\d,./:-]*\d$|^\d$")
+#: What a completion may be: an amount with thousands separators or decimals, or a date.
+#: Bare digit runs are not — measured, the English reading turns phone numbers, stamps
+#: and Arabic letters beside a figure into ones ("600" -> "600599", "2,000,000" ->
+#: "992,000,000"), and a completed figure must be one a reader would recognise as such.
+_COMPLETION = re.compile(
+    r"^\d{1,3}(?:,\d{3})+(?:\.\d{1,3})?$|^\d+\.\d{1,3}$|^\d{1,2}/\d{1,2}/\d{4}$|^\d{4}[-/]\d{1,2}[-/]\d{1,2}$"
+)
+#: How far apart, in pixels at RENDER_DPI, the edges of two readings of one word may be.
+_SAME_PLACE = 12
+
+
+def _recover_numbers(image, text: str) -> str:
+    """Figures the Arabic reading cut short, taken from a reading of the same place.
+
+    Measured on a scanned statement of claim: «1,985.19 درهماً يومياً» — the daily delay
+    penalty, set in bold Latin digits inside an Arabic line — was read «9 درهماً», and the
+    answers then quoted a penalty of nine dirhams. Read for English alone, the same spot
+    gives «1,985.19». So each figure of the Arabic reading is compared with what the
+    English reading found in the same box, and replaced only when that is a longer,
+    well-formed figure beginning or ending with it: a figure is completed, never invented
+    or changed. The same box is the proof — the Arabic reading saw the whole figure (its
+    box spans all of it) and wrote only part.
+    """
+    import pytesseract
+
+    words = pytesseract.image_to_data(image, lang=LANGUAGES, output_type=pytesseract.Output.DICT)
+    latin = pytesseract.image_to_data(image, lang="eng", output_type=pytesseract.Output.DICT)
+    figures = [
+        (latin["left"][i], latin["left"][i] + latin["width"][i], latin["top"][i], latin["text"][i].strip())
+        for i in range(len(latin["text"]))
+        if _COMPLETION.match(latin["text"][i].strip()) and _plausible_date(latin["text"][i].strip())
+    ]
+    for i, word in enumerate(words["text"]):
+        word = word.strip()
+        # A figure read whole is left as read: beside an Arabic letter the English
+        # reading adds digits of its own («2,000,000» became «992,000,000»).
+        if not _FIGURE.match(word) or _COMPLETION.match(word):
+            continue
+        left, right, top = words["left"][i], words["left"][i] + words["width"][i], words["top"][i]
+        for figure_left, figure_right, figure_top, figure in figures:
+            digits, part = figure.replace(",", ""), word.replace(",", "")
+            if (
+                abs(figure_left - left) <= _SAME_PLACE and abs(figure_right - right) <= _SAME_PLACE
+                and abs(figure_top - top) <= _SAME_PLACE
+                and len(digits) > len(part) and (digits.startswith(part) or digits.endswith(part))
+            ):
+                neighbour = _next_word(words, i)
+                pattern = rf"(?<![\d,.]){re.escape(word)}(?![\d,.])" + (rf"(?=\s+{re.escape(neighbour)})" if neighbour else "")
+                if len(re.findall(pattern, text)) == 1:
+                    text = re.sub(pattern, figure, text)
+                    logger.info("OCR figure completed: %s -> %s", word, figure)
+                break
+    return text
+
+
+def _plausible_date(figure: str) -> bool:
+    """A date with a real day and month; anything that is not a date passes («97/6/1981»
+    was «7/6/1981» with a letter beside it read as a 9)."""
+    parts = re.split(r"[/-]", figure)
+    if len(parts) != 3:
+        return True
+    day, month = (parts[2], parts[1]) if len(parts[0]) == 4 else (parts[0], parts[1])
+    return 1 <= int(day) <= 31 and 1 <= int(month) <= 12
+
+
+def _next_word(words: dict, index: int) -> str:
+    """The word after `index` on the same line, which pins down where a figure is in the text."""
+    for j in range(index + 1, len(words["text"])):
+        if words["line_num"][j] != words["line_num"][index] or words["block_num"][j] != words["block_num"][index]:
+            return ""
+        if words["text"][j].strip():
+            return words["text"][j].strip()
+    return ""
+
+
 def read_page(page) -> str:
     """One PDF page rendered and read, or an empty string.
 
@@ -172,6 +250,7 @@ def read_page(page) -> str:
         pixmap = page.get_pixmap(dpi=RENDER_DPI)
         image = Image.open(io.BytesIO(pixmap.tobytes("png")))
         text = pytesseract.image_to_string(image, lang=LANGUAGES)
+        text = _recover_numbers(image, text)
     except Exception:  # noqa: BLE001
         logger.exception("OCR failed on page %s", getattr(page, "number", "?"))
         return ""

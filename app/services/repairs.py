@@ -119,6 +119,32 @@ def reread_damaged_pdfs(container) -> None:
     _mark(name, "\n".join(names) or "none")
 
 
+def reread_all_pdfs(container) -> None:
+    """Every PDF read again, once: three reading fixes reach the files already indexed.
+
+    Tables stored in drawing order are turned the right way round, letters a ligature
+    font swapped are put back, and figures the Arabic recognition cut short on a scan are
+    completed. Between them they touch most of the case files, and telling exactly which
+    would cost a full reading anyway — so all are read.
+    """
+    name = "2026-10-08-tables-letters-figures"
+    if _done(name):
+        return
+    from sqlalchemy import select
+
+    from app.models.database import session_scope
+    from app.models.document import Document
+
+    with session_scope() as session:
+        documents = list(session.scalars(select(Document).where(Document.status == "completed")))
+        targets = [d for d in documents if Path(d.stored_path or "").suffix.lower() == ".pdf"]
+        names = [d.filename for d in targets]
+        for document in targets:
+            container.document_service.reindex(session, document.id)
+    logger.info("Re-read %s PDF(s) with the table, letter and figure fixes", len(names))
+    _mark(name, "\n".join(names) or "none")
+
+
 def run_pending(container) -> None:
     """In the background: startup is not held for it, and a failure is logged and tried
     again at the next start rather than stopping the server."""
@@ -129,6 +155,10 @@ def run_pending(container) -> None:
             logger.exception("One-time repair failed; it will be tried at the next start")
         try:
             reread_pictured_pdfs(container)
+        except Exception:  # noqa: BLE001
+            logger.exception("One-time repair failed; it will be tried at the next start")
+        try:
+            reread_all_pdfs(container)
         except Exception:  # noqa: BLE001
             logger.exception("One-time repair failed; it will be tried at the next start")
 

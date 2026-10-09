@@ -183,12 +183,17 @@ class DocumentScope:
         if len(exact) == 1:
             return ScopeDecision(document=exact[0], named=exact[0].filename)
 
-        # 2. The base name — what versions of a document share.
-        matched = [d for d in documents if _names(d.base) and _contains(words, list(d.base))]
+        # 2. The base name — what versions of a document share. Not when the question
+        # names it as the subject of another document: «مذكرتها التعقيبية على تقرير
+        # الخبرة النهائي» asks about a memo, and searching the report alone answered
+        # that the memo was not in the sources.
+        matched = [d for d in documents if _names(d.base) and _contains(words, list(d.base))
+                   and not _about_it(words, list(d.base))]
         # A title that no other document carries names its document too.
         for doc in documents:
             title = tuple(_tokens(doc.title))
-            if doc not in matched and len(title) >= 3 and titles_seen.get(title) == 1 and _contains(words, list(title)):
+            if (doc not in matched and len(title) >= 3 and titles_seen.get(title) == 1 and _contains(words, list(title))
+                    and not _about_it(words, list(title))):
                 matched.append(doc)
         if not matched:
             return ScopeDecision()
@@ -211,6 +216,18 @@ class DocumentScope:
                 return ScopeDecision(document=specific[0], named=named)
 
         return ScopeDecision(candidates=sorted(matched, key=lambda d: d.uploaded), named=named)
+
+
+#: Words that put a document's name after them as what another document is about:
+#: "a memo on the report", "the objection to the report" (normalised spellings).
+_ABOUT = {"علي", "عن", "حول", "بشان", "ضد", "لتقرير", "اعتراض", "تعقيب", "رد"}
+
+
+def _about_it(haystack: list[str], needle: list[str]) -> bool:
+    """Whether every place `needle` appears in `haystack` follows a word of `_ABOUT`."""
+    width = len(needle)
+    places = [i for i in range(len(haystack) - width + 1) if haystack[i:i + width] == needle]
+    return bool(places) and all(i > 0 and haystack[i - 1] in _ABOUT for i in places)
 
 
 def _names(base: tuple[str, ...]) -> bool:

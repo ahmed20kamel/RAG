@@ -41,11 +41,29 @@ def damage(text: str) -> float:
     foreign = len(_FOREIGN.findall(text)) / max(1, len(letters))
     split = sum(1 for t in arabic if len(t) == 1 and t not in _SINGLE_WORDS) / len(arabic)
     reversed_lam_alef = sum(1 for t in arabic if _REVERSED_LAM_ALEF.match(t)) / len(arabic)
-    return round(foreign * 4 + split + reversed_lam_alef * 3, 4)
+    return round(foreign * 4 + split + reversed_lam_alef * 3 + swapped(text) * 2, 4)
+
+
+#: The article with its lam moved one place on: "املوقرة", "اخلربة", "املدعي" for
+#: "الموقرة", "الخبرة", "المدعي". Fonts that draw lam+letter as one ligature store the
+#: pair in drawing order, and the text layer then swaps every such pair — "حمكمة",
+#: "جتاري", "حتية" too. Measured on the case files: 6–18% of the words of the memos typed
+#: in that font, at most 0.5% of any clean file (where "املاء" and the like are real words).
+_SWAPPED_ARTICLE = re.compile(r"^[وفبكل]?ا[بتثجحخدذرزسشصضطظعغفقكمنهوي]ل")
+
+
+def swapped(text: str) -> float:
+    """The share of Arabic words whose article came out letter-swapped."""
+    words = [t for t in (t.strip(".,:،؛()[]«»\"'-–—") for t in text.split()) if len(t) > 2 and _ARABIC_TOKEN.match(t)]
+    if len(words) < 15:
+        return 0.0
+    return round(sum(1 for t in words if _SWAPPED_ARTICLE.match(t)) / len(words), 4)
 
 
 #: Above this a page is re-read as an image.
 DAMAGED = 0.08
+#: Above this share of swapped words a page's letters are put back in order.
+SWAPPED = 0.03
 
 
 def arabic_words(text: str) -> int:

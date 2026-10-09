@@ -102,14 +102,16 @@ class ContextBuilder:
         direct = [
             c for c in candidates
             if c.origins
-            & {"vector", "keyword", "entity", "same-section", "semantic-reserved", "timeline"}
+            & {"vector", "keyword", "entity", "same-section", "semantic-reserved", "timeline", "whole-document"}
         ]
         promoted = {c.chunk_id for c in direct[: self.primary_count]}
 
         for candidate in candidates:
             if candidate.chunk_id in promoted:
                 candidate.tier = EvidenceTier.PRIMARY
-            elif candidate.origins & {"vector", "keyword", "entity"}:
+            # "whole-document": the remaining pages of a short memo the question is about
+            # (RagService._with_short_documents) — evidence, not loosely related reading.
+            elif candidate.origins & {"vector", "keyword", "entity", "whole-document"}:
                 candidate.tier = EvidenceTier.SUPPORTING
             else:
                 candidate.tier = EvidenceTier.RELATED
