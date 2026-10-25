@@ -19,7 +19,10 @@ from __future__ import annotations
 import logging
 import re
 import statistics
+import threading
 from collections import Counter
+from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 
 from app.core.domain import (
     Block,
@@ -78,14 +81,67 @@ SENTENCE_END = ("۔", ".", "!", "؟", "?", ":", "،", ",", ";", "؛")
 MAX_HEADINGS_PER_PAGE = 6
 
 
+#: PyMuPDF may not be used by two threads at once, even on different files. Measured on
+#: Rag-pc: re-reading six files at once crashed the server inside mupdfcpp64.dll (an
+#: access violation), and with it every question being answered. Files are read in
+#: worker processes instead: still several at once, and a file that crashes the library
+#: costs that file, not the server.
+_POOL: ProcessPoolExecutor | None = None
+_POOL_LOCK = threading.Lock()
+
+
+def _reader_pool(processes: int) -> ProcessPoolExecutor:
+    global _POOL
+    with _POOL_LOCK:
+        if _POOL is None:
+            _POOL = ProcessPoolExecutor(max_workers=processes, initializer=_worker_logging)
+        return _POOL
+
+
+def _discard_pool(broken: ProcessPoolExecutor) -> None:
+    global _POOL
+    with _POOL_LOCK:
+        if _POOL is broken:
+            _POOL = None
+    broken.shutdown(wait=False)
+
+
+def _worker_logging() -> None:
+    """The worker writes to the output it inherited — the server's log — in its format."""
+    from app.logging_config import configure_logging
+
+    configure_logging("INFO")
+
+
+def _parse_in_worker(enable_ocr: bool, content: bytes, filename: str) -> ParsedDocument:
+    return PdfParser(enable_ocr=enable_ocr).parse(content, filename)
+
+
 class PdfParser(DocumentParser):
     name = "pdf"
     supported_extensions = (".pdf",)
 
-    def __init__(self, enable_ocr: bool = True) -> None:
+    def __init__(self, enable_ocr: bool = True, processes: int = 0) -> None:
         self.enable_ocr = enable_ocr
+        #: Worker processes to read files in; 0 reads in the calling thread (tests, and
+        #: the worker processes themselves).
+        self.processes = processes
 
     def parse(self, content: bytes, filename: str) -> ParsedDocument:
+        if self.processes <= 0:
+            return self._parse_here(content, filename)
+        # Twice: a crash breaks every file the pool was reading, not only the one that
+        # caused it, and the others deserve a second reading in a fresh pool.
+        for attempt in (1, 2):
+            pool = _reader_pool(self.processes)
+            try:
+                return pool.submit(_parse_in_worker, self.enable_ocr, content, filename).result()
+            except BrokenProcessPool:
+                _discard_pool(pool)
+                logger.error("The PDF reader crashed while reading %s (attempt %s)", filename, attempt)
+        raise ParsingError(f"تعذّرت قراءة الملف '{filename}': توقف قارئ PDF أثناء قراءته.")
+
+    def _parse_here(self, content: bytes, filename: str) -> ParsedDocument:
         try:
             import pymupdf
         except ImportError as exc:  # pragma: no cover - dependency is declared

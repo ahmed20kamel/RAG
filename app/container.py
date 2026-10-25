@@ -119,7 +119,7 @@ class Container:
             MarkdownParser(settings.max_heading_depth),
             XlsxParser(),
             DocxParser(settings.max_heading_depth),
-            PdfParser(enable_ocr=settings.enable_ocr),
+            PdfParser(enable_ocr=settings.enable_ocr, processes=settings.ingestion_workers),
             ImageParser(),
         ])
 
