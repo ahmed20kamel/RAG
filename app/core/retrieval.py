@@ -35,6 +35,9 @@ class Candidate:
     # document happens to be in would start influencing what gets retrieved.
     locator: str = ""
     page: int | None = None
+    #: The project the document belongs to, shown beside the source so the model can
+    #: tie a bill of quantities that never names its owner to the owner asked about.
+    project: str = ""
 
     vector_score: float | None = None
     keyword_score: float | None = None

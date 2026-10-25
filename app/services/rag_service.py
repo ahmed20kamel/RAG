@@ -687,6 +687,7 @@ class RagService:
             category=request.category,
             document_ids=request.document_ids,
         )
+        candidates = self._with_named_project(request, analysis, candidates, chose_files, allowed, plan)
         timings["retrieval_ms"] = self._elapsed_ms(retrieval_started)
         if self._is_compound(analysis):
             parts_started = time.perf_counter()
@@ -1454,6 +1455,31 @@ class RagService:
         present = {c.chunk_id for c in candidates}
         header = [self.retriever._from_record(row) for row in rows if row.chunk_id not in present]
         return header + candidates
+
+    def _with_named_project(self, request, analysis, candidates: list, chose_files: bool, allowed, plan) -> list:
+        """The project the question names searched first, everything else after it; and
+        every source labelled with its project.
+
+        Searched in addition, not instead: a project is recognised by the names its files
+        carry, and a file filed under the wrong project, or naming its owner in the other
+        script, must still be found by the search over everything.
+        """
+        scope = getattr(self, "project_scope", None)
+        if scope is None:
+            return candidates
+        if not chose_files:
+            documents, projects = scope.resolve(request.question, among=allowed)
+            if documents:
+                first = self.retriever.retrieve(
+                    analysis, top_k=request.top_k, category=request.category, document_ids=documents,
+                )
+                seen = {c.chunk_id for c in first}
+                candidates = first + [c for c in candidates if c.chunk_id not in seen]
+                plan.scope = plan.scope or "مشروع: " + "، ".join(projects)
+                logger.info("Question names project %s; its files searched first", projects)
+        for candidate in candidates:
+            candidate.project = scope.project(candidate.document_id)
+        return candidates
 
     def _with_short_documents(self, candidates: list) -> list:
         """A short memo or letter the top results are about is read whole.

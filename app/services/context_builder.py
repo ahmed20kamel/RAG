@@ -66,6 +66,8 @@ class ContextBuilder:
             )
             if candidate.locator:
                 header += f" | الموضع: {candidate.locator}"
+            if candidate.project:
+                header += f" | المشروع: {candidate.project}"
             block = f"{header}\n{body}"
             tier_prefix = ""
             if candidate.tier is not current_tier:

@@ -16,6 +16,7 @@ from app.services.auth_service import AuthService
 from app.services.chunking import HeadingAwareChunker
 from app.services.context_builder import ContextBuilder
 from app.services.document_scope import DocumentScope
+from app.services.project_scope import ProjectScope
 from app.services.document_service import DocumentService
 from app.services.embeddings import OllamaEmbeddingClient
 from app.services.completion import CompletionEngine
@@ -315,6 +316,8 @@ class Container:
             knowledge_only_threshold=settings.knowledge_only_threshold,
             enable_knowledge_layer=settings.enable_knowledge_layer,
         )
+        # The project a question names is searched first, and every source shows its project.
+        self.rag_service.project_scope = ProjectScope()
         # Files asked for in the chat: PDF, Word, Excel, each in its reader's own folder.
         self.exports = ExportService(
             self.rag_service, FileStore(BASE_DIR / "data" / "exports"), self.knowledge,
