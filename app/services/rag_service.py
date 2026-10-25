@@ -246,6 +246,13 @@ HEADER_CHUNKS = 2
 #: shorter: a memo or a letter, not a contract.
 SHORT_DOCUMENT_RANK = 5
 SHORT_DOCUMENT_CHUNKS = 10
+#: The question's rarest words are searched on their own, and this many of the passages
+#: holding them join the evidence, after the strongest few.
+RARE_TERMS = 2
+RARE_PASSAGES = 4
+RARE_AFTER = 3
+#: The files of this many leading passages are searched for the rare words.
+RARE_FILES = 5
 
 PART_NOT_FOUND = "لم أجد في المصادر المرسلة ما يجيب عن هذا الجزء."
 PART_NOT_FOUND_EN = "The sources provided do not answer this part."
@@ -692,6 +699,7 @@ class RagService:
             document_ids=request.document_ids,
         )
         candidates = self._with_named_project(request, analysis, candidates, chose_files, allowed, plan)
+        candidates = self._with_rare_terms(request, analysis, candidates, allowed)
         timings["retrieval_ms"] = self._elapsed_ms(retrieval_started)
         if self._is_compound(analysis):
             parts_started = time.perf_counter()
@@ -1474,8 +1482,10 @@ class RagService:
         if not chose_files:
             documents, projects = scope.resolve(request.question, among=allowed)
             if documents:
+                focused = scope.without_names(request.question, projects)
+                within = self.analyzer.analyze(focused) if focused != request.question else analysis
                 first = self.retriever.retrieve(
-                    analysis, top_k=request.top_k, category=request.category, document_ids=documents,
+                    within, top_k=request.top_k, category=request.category, document_ids=documents,
                 )
                 seen = {c.chunk_id for c in first}
                 candidates = first + [c for c in candidates if c.chunk_id not in seen]
@@ -1484,6 +1494,48 @@ class RagService:
         for candidate in candidates:
             candidate.project = scope.project(candidate.document_id)
         return candidates
+
+    def _with_rare_terms(self, request, analysis, candidates: list, allowed) -> list:
+        """The passages holding the question's rarest words, as direct evidence.
+
+        A row of a long table is a needle the similarity search cannot see — the table's
+        meaning is everything in it — and the keyword search ranks it below passages that
+        share the question's common words. Measured: "الجسور | م3 | 72 | 1250 | 90000" was
+        first for "تسعير بند الجسور" alone, thirty-first in the full question's pool, and
+        absent from the answer, which said there was no such item.
+        """
+        index = getattr(self.retriever, "keyword_index", None)
+        if index is None or not candidates:
+            return candidates
+        terms = index.rarest_terms(analysis.search_text or analysis.normalized, limit=RARE_TERMS)
+        if not terms:
+            return candidates
+        # Inside the files the search already settled on: it found the right file and
+        # missed the row in it. Searched everywhere, "جسور" found the specifications'
+        # paragraphs about beams before the BOQ's priced row.
+        within = list(dict.fromkeys(c.document_id for c in candidates[:RARE_FILES]))
+        scope = getattr(self, "project_scope", None)
+        hits = index.search(" ".join(terms), limit=RARE_PASSAGES * 3, document_ids=within)
+        present = {c.chunk_id for c in candidates}
+        wanted = [chunk_id for chunk_id, _ in hits if chunk_id not in present][:RARE_PASSAGES]
+        if not wanted:
+            return candidates
+        try:
+            with session_scope() as db:
+                rows = {row.chunk_id: row for row in db.scalars(select(ChunkRecord).where(ChunkRecord.chunk_id.in_(wanted)))}
+        except Exception:  # noqa: BLE001
+            logger.exception("Could not read the passages holding the rare terms")
+            return candidates
+        added = []
+        for chunk_id in wanted:
+            if chunk_id in rows:
+                candidate = self.retriever._from_record(rows[chunk_id])
+                candidate.origins = {"keyword"}
+                if scope is not None:
+                    candidate.project = scope.project(candidate.document_id)
+                added.append(candidate)
+        logger.info("Rare terms %s added %s passage(s)", terms, len(added))
+        return candidates[:RARE_AFTER] + added + candidates[RARE_AFTER:]
 
     def _with_short_documents(self, candidates: list) -> list:
         """A short memo or letter the top results are about is read whole.

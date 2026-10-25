@@ -34,6 +34,15 @@ class _Posting:
     frequencies: dict[str, int] = field(default_factory=dict)
 
 
+_NOT_SUBJECT_WORDS = (
+    "بكم", "كم", "كام", "ما", "ماذا", "متى", "هل", "كيف", "لماذا", "اين", "من", "تم", "يتم", "اريد", "عايز",
+    "اعطني", "هات", "قولي", "اذكر", "وضح", "لخص", "حلل", "what", "which", "how", "much", "many", "when",
+    "معدل", "المعدل", "المعدله", "النهائي", "النهائيه", "الموقع", "الموقعه", "المعتمد", "المعتمده", "الاخير",
+    "المحدث", "الجديد", "القديم", "النسخه", "revised", "final", "signed", "unsigned", "updated", "latest",
+    "version", "rev", "copy",
+)
+
+
 class KeywordIndex:
     """In-memory BM25 over every indexed chunk. Rebuilt on ingest, delete and startup."""
 
@@ -156,6 +165,23 @@ class KeywordIndex:
 
         scored.sort(key=lambda item: item[1], reverse=True)
         return scored[:limit]
+
+    #: Rare in the passages, but never the subject: the asking ("بكم" is rare because
+    #: documents state prices, they do not ask them) and the words that say which version.
+    def rarest_terms(self, text: str, limit: int = 2, max_share: float = 0.03) -> list[str]:
+        """The question's rarest words that the passages do contain: the ones that pick
+        out the passage that answers, not the ones every passage shares. Figures are left
+        out — a date or an amount is matched where it is written, not searched as a word."""
+        self.ensure_loaded()
+        ignored = set(tokenize(" ".join(_NOT_SUBJECT_WORDS)))
+        with self._lock:
+            total = len(self._postings) or 1
+            found = []
+            for term in set(tokenize(text)) - ignored:
+                frequency = len(self._inverted.get(term, ()))
+                if frequency and frequency / total <= max_share and not any(ch.isdigit() for ch in term):
+                    found.append((frequency, term))
+        return [term for _, term in sorted(found)[:limit]]
 
     def unknown_terms(self, text: str) -> list[str]:
         """Words of `text` that occur in no indexed passage, in the order written.

@@ -139,6 +139,20 @@ class ProjectScope:
         documents = [d for p in projects for d in self._documents_of.get(p, []) if allowed is None or d in allowed]
         return documents, projects
 
+    def without_names(self, question: str, projects: list[str]) -> str:
+        """The question without the words that named these projects.
+
+        Searched among a project's own files, its owner's name only adds weight to the
+        passages that repeat it — contract clauses — over the row that answers: measured,
+        "بند الجسور في BOQ فيلا ماجد الحمادي" ranked sixteen contract passages above the
+        BOQ row "الجسور | م3 | 72 | 1250 | 90000", which never names the owner.
+        """
+        self._refresh()
+        names = {w for w, owners in self._projects_of_word.items() if owners & set(projects)}
+        kept = [raw for raw in question.split()
+                if normalize(raw).lower().strip(".,:;()[]«»\"'/؟?") not in names]
+        return " ".join(kept) if len(kept) >= 2 else question
+
 
 def _rows_from_db() -> list[tuple[str, str, str, list[str], str]]:
     from sqlalchemy import select

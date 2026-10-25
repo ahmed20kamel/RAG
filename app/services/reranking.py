@@ -9,6 +9,7 @@ no model call, which matters on hardware where generation alone takes over a min
 from __future__ import annotations
 
 import logging
+import math
 from abc import ABC, abstractmethod
 
 from app.core.retrieval import Candidate
@@ -125,8 +126,19 @@ class FeatureReranker(Reranker):
         heading_targets = query_terms
         alternatives = analysis.term_alternatives
 
+        # Each query term weighted by how rare it is among the passages retrieved. Counted
+        # alike, the words every passage shares outvoted the one that mattered: measured,
+        # "بكم تم تسعير بند الجسور في BOQ … بتاريخ 25-8-2025" ranked sixteen passages that
+        # repeat "2025", "BOQ" and "مشروع" above the only row that says "الجسور".
+        pool_terms = [content_terms(c.content) | content_terms(c.section) for c in candidates]
+        weights = {
+            t: math.log(1.0 + (len(pool_terms) + 1) / (1 + sum(1 for terms in pool_terms if t in terms)))
+            for t in query_terms
+        }
+        total_weight = sum(weights.values()) or 1.0
+
         def matched(terms: set[str]) -> float:
-            """Query terms a passage covers; a synonym counts for half of the word asked.
+            """Query terms a passage covers, by weight; a synonym counts for half.
 
             Half, as in the keyword search. At full credit a synonym of a word that is
             everywhere in a file reshuffled passages the question's own words already
@@ -135,11 +147,13 @@ class FeatureReranker(Reranker):
             the question's own words miss, not reorder the ones they reach.
             """
             return sum(
-                1.0 if t in terms
-                else SYNONYM_CREDIT if (alternatives.get(t) and alternatives[t] & terms)
-                else 0.0
+                weights[t] * (
+                    1.0 if t in terms
+                    else SYNONYM_CREDIT if (alternatives.get(t) and alternatives[t] & terms)
+                    else 0.0
+                )
                 for t in query_terms
-            )
+            ) / total_weight
 
         # Both new signals are prepared once for the whole pool rather than per
         # candidate. Recency is relative — a passage is "recent" compared with the
@@ -153,14 +167,12 @@ class FeatureReranker(Reranker):
             text = normalize(f"{candidate.section} {candidate.heading} {candidate.content}")
             chunk_terms = content_terms(candidate.content) | content_terms(candidate.section)
 
-            coverage = matched(chunk_terms) / len(query_terms) if query_terms else 0.0
+            coverage = matched(chunk_terms) if query_terms else 0.0
             identifier_match = (
                 1.0 if identifiers and any(ident in text for ident in identifiers) else 0.0
             )
             heading_terms = content_terms(candidate.section)
-            heading_match = (
-                matched(heading_terms) / len(heading_targets) if heading_targets else 0.0
-            )
+            heading_match = matched(heading_terms) if heading_targets else 0.0
             structure = (
                 1.0 if candidate.has_table and analysis.intent in TABLE_FRIENDLY_INTENTS else 0.0
             )
