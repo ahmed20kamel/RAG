@@ -71,6 +71,16 @@ SMALL_TALK = re.compile(
     r"[\s!.,،؟?😊🙏👍❤️]*$",
     re.IGNORECASE,
 )
+#: A greeting, alone. Measured: «مرحبا» was read as a two-word question and answered with
+#: "your question is short and fits several files — which one?".
+GREETING = re.compile(
+    r"^\s*(?:(?P<salam>(?:ال)?سلام(?:\s+عليكم)?(?:\s+ورحمة\s+الله(?:\s+وبركاته)?)?)|مرحبا|مرحباً|مرحبًا|مرحبتين|"
+    r"أهلا|اهلا|أهلاً|اهلاً|أهلًا|اهلين|أهلين|هلا|هلو|هاي|صباح\s+الخير|صباح\s+النور|مساء\s+الخير|مساء\s+النور|"
+    r"hi|hello|hey|good\s+(?:morning|afternoon|evening))"
+    r"(?:\s*[،,]?\s*(?:كيف\s+حالك|كيف\s+الحال|ازيك|إزيك|عامل\s+ايه|عامل\s+إيه|how\s+are\s+you))?"
+    r"[\s!.,،؟?😊👋🙏❤️]*$",
+    re.IGNORECASE,
+)
 
 SYSTEM_PROMPT = f"""أنت مساعد معرفي للشركة. ما يصلك في "الوقائع المستخرجة" و"المصادر" مأخوذ من قاعدة معرفة الشركة، وهو مرجعك الوحيد.
 
@@ -434,6 +444,14 @@ class RagService:
         exception — is counted exactly once, and no route can forget.
         """
         started = time.perf_counter()
+        greeted = GREETING.match(request.question)
+        if greeted and not (request.image_text or request.image_marked):
+            if self._in_english(request.question):
+                answer = "Hello! 👋 Ask me about your contracts, payments, reports or any file you uploaded."
+            else:
+                answer = ("وعليكم السلام ورحمة الله! 👋 " if greeted.group("salam") else "أهلًا بك! 👋 ") + (
+                    "اسألني عن عقودك أو دفعاتك أو تقاريرك أو أي ملف رفعته، وسأجيبك من المستندات نفسها.")
+            return ChatResponse(answer=answer, grounded=True, model=self.llm.model, answer_source="internal")
         if SMALL_TALK.match(request.question) and not (request.image_text or request.image_marked):
             # "شكرًا", "تمام", "thanks": answered as what they are. Read as a follow-up,
             # a thank-you re-asked the previous question and answered it a second time.
