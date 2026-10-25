@@ -65,6 +65,7 @@ function Ensure-Task($name, $trigger, $arguments, $logName) {
 Ensure-Task 'RAG Backup' (New-ScheduledTaskTrigger -Daily -At 2:00am) 'scripts/backup.py' 'backup.log'
 Ensure-Task 'RAG Backup Drill' (New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 3:00am) 'scripts/backup.py --drill' 'backup.log'
 Ensure-Task 'RAG Nightly' (New-ScheduledTaskTrigger -Daily -At 2:30am) 'scripts/nightly_review.py' 'nightly.log'
+Ensure-Task 'RAG Accuracy' (New-ScheduledTaskTrigger -Daily -At 3:30am) 'scripts/accuracy_suite.py run' 'accuracy.log'
 
 # Settings live in .env, which git never carries. A format the code learns to read is
 # added to the machine's allowed list here, once; the server restarts to pick it up.

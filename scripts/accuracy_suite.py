@@ -172,6 +172,10 @@ def main() -> int:
     go.add_argument("--server", default="http://127.0.0.1:8080")
     sub.add_parser("report")
     args = parser.parse_args()
+    if not SUITE.exists():
+        # A machine without the case files has no questions about them: nothing to do.
+        print(f"No suite at {SUITE}; nothing to run.")
+        return 0
     if args.command == "run":
         path = run(set(args.only) if args.only else None, args.failed, args.server)
         print(report(path).split("## Failures")[0])
