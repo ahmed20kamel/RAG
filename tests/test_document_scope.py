@@ -71,7 +71,11 @@ def names_are_resolved() -> None:
         "في سجل الاجتماعات الأسبوعية للمشروع ماذا تقرر؟": "unique",
         # An Arabic file name is an ordinary phrase: named as what another document is
         # about, it does not narrow the search to itself.
-        "ما الذي انتهى إليه تقرير الخبرة النهائي بشأن سبب الانهيار؟": "report",
+        # A name that only says what kind of document it is narrows nothing unless the
+        # question points at the file: the search finds the report among the rest.
+        "ما الذي انتهى إليه تقرير الخبرة النهائي بشأن سبب الانهيار؟": "all",
+        "اقرأ ملف تقرير الخبرة النهائي وأجب منه": "report",
+        "كم مدة تنفيذ فيلا ماجد الحمادي في جدول الكميات المعدل؟": "all",
         "ما أهم دفوع سافكوم في مذكرتها التعقيبية على تقرير الخبرة النهائي؟": "all",
         "ما اعتراض المدعية على تقرير الخبرة النهائي؟": "all",
     }

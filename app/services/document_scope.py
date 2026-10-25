@@ -188,12 +188,13 @@ class DocumentScope:
         # الخبرة النهائي» asks about a memo, and searching the report alone answered
         # that the memo was not in the sources.
         matched = [d for d in documents if _names(d.base) and _contains(words, list(d.base))
-                   and not _about_it(words, list(d.base))]
+                   and not _about_it(words, list(d.base))
+                   and (_distinctive(d.base) or _pointed_at(question, words, d))]
         # A title that no other document carries names its document too.
         for doc in documents:
             title = tuple(_tokens(doc.title))
             if (doc not in matched and len(title) >= 3 and titles_seen.get(title) == 1 and _contains(words, list(title))
-                    and not _about_it(words, list(title))):
+                    and not _about_it(words, list(title)) and _distinctive(title)):
                 matched.append(doc)
         if not matched:
             return ScopeDecision()
@@ -221,6 +222,51 @@ class DocumentScope:
 #: Words that put a document's name after them as what another document is about:
 #: "a memo on the report", "the objection to the report" (normalised spellings).
 _ABOUT = {"علي", "عن", "حول", "بشان", "ضد", "لتقرير", "اعتراض", "تعقيب", "رد"}
+
+
+#: Words that say what kind of document a file is, not which one. A file named only with
+#: them — «CONTRACT.pdf», «جدول الكميات.pdf», «حكم قطعي.pdf» — is named by every question
+#: about any contract, any bill of quantities, any ruling. Measured: "جدول الكميات المعدل
+#: لفيلا ماجد الحمادي" was searched in another villa's «جدول الكميات.pdf» alone.
+_DOCUMENT_KIND_WORDS = {
+    "contract", "annex", "addendum", "no", "boq", "final", "revised", "actual", "with", "ps", "con", "fees",
+    "specification", "specifications", "special", "general", "drawing", "drawings", "signed", "unsigned",
+    "site", "plan", "material", "materials", "table", "offer", "price", "prices", "ref", "list", "report",
+    "water", "supply", "fire", "fighting", "drainage", "electrical", "elec", "etisalat", "camera", "ac",
+    "manufacturers", "str", "structural", "arch", "details", "summary", "payment", "payments", "project",
+    "invoice", "letter", "rev", "copy", "draft", "approved", "stamped", "compiled", "tiles", "lpo",
+    "عقد", "العقد", "المقاوله", "مقاوله", "للمشروع", "المشروع", "مشروع", "ملحق", "جدول", "الكميات", "كميات",
+    "تقرير", "الخبره", "خبره", "النهايي", "نهايي", "مبديي", "حكم", "الحكم", "قطعي", "تمهيدي", "المستعجل",
+    "مستعجل", "محضر", "الجلسه", "جلسه", "تاريخ", "مذكره", "نهاييه", "للخبره", "دفاع", "تعقيب", "كتاب",
+    "الاستشاري", "الرد", "فحص", "التربه", "المعتمد", "المعتمده", "الاضرار", "محدث", "المواصفات", "الخاصه",
+    "الملاحظات", "مع", "بعد", "المراجعه", "الاخير", "نسب", "الانجاز", "عرض", "سعر", "صحيفه", "الدعوي",
+    "لايحه", "دعوي", "طلب", "تصحيح", "المامورية", "المامورية", "قرار", "المحكمه", "الشكوي", "الاولي",
+    "الثانيه", "الانذار", "العدلي", "خطاب", "مقترح", "الفني", "الصادر",
+}
+
+
+def _distinctive(name: tuple[str, ...] | list[str]) -> bool:
+    """Whether a name says which document, not only what kind: a word beyond the kind
+    words and the numbers — an owner, a party, a code."""
+    kinds = {normalize(word).lower() for word in _DOCUMENT_KIND_WORDS}
+    return any(token not in kinds and not token.isdigit() and len(token) > 2 for token in name)
+
+
+#: The word for "file" just before a name points at the file, however generic its name.
+_FILE_WORDS = {"ملف", "الملف", "file", "document", "مستند", "المستند"}
+
+
+def _pointed_at(question: str, words: list[str], doc: "KnownDocument") -> bool:
+    """Whether the question points at this file explicitly: «اقرأ ملف PROJECT_SUMMARY»,
+    the name written as a file name («PROJECT_SUMMARY», «x.md»), or with its version."""
+    base, width = list(doc.base), len(doc.base)
+    for i in range(len(words) - width + 1):
+        if words[i:i + width] == base and i > 0 and words[i - 1] in _FILE_WORDS:
+            return True
+    stem = doc.filename.rsplit(".", 1)[0]
+    if ("_" in stem or doc.filename in question) and stem.split("_")[0].lower() in question.lower():
+        return True
+    return len(doc.name) > len(doc.base) and _contains(words, list(doc.name))
 
 
 def _about_it(haystack: list[str], needle: list[str]) -> bool:
