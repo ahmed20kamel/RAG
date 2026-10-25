@@ -99,6 +99,18 @@ def main() -> int:
     )
     check(fixed == text, "a figure in a different box is not taken", fixed)
 
+    # The percent sign read as digits in the scanned contracts.
+    cases = {
+        "6- غرامة التأخير: تساوي 9010 من قيمة المقاولة": "تساوي 10% من قيمة المقاولة",
+        "يتم حجز نسبة (9010) عشرة بالمائة": "نسبة (10%) عشرة بالمائة",
+        "وتعادل 9/5 من قيمة المقاولة": "وتعادل 5% من قيمة",
+        "و يتم حجز 905 من قيمة المقاولة الفعلية": "حجز 5% من قيمة",
+    }
+    for read, wanted in cases.items():
+        check(wanted in ocr.repair_percentages(read), f"a percentage read as digits is repaired: {wanted}")
+    for amount in ("دفعة بقيمة 9010 درهم", "رقم الشكوى 9010", "عام 1905 من قيمة العقد"):
+        check(ocr.repair_percentages(amount) == amount, f"an amount, a number or a year is left alone: {amount}")
+
     print()
     if FAILURES:
         print(f"{len(FAILURES)} FAILURE(S)")

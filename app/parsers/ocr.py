@@ -213,6 +213,24 @@ def _recover_numbers(image, text: str) -> str:
     return text
 
 
+#: A percentage the Arabic reading took the sign of for digits: «%10» printed right to
+#: left came out «9010», «%5» as «905» or «9/5». Measured on the scanned contracts: the
+#: delay penalty, the retention and the performance bond all read as four-digit
+#: numbers. Repaired only where the words around it make it a share of something —
+#: «من قيمة المقاولة», «بالمائة» — so an amount such as «9010 درهم» is never touched.
+_MISREAD_PERCENT = re.compile(
+    r"(?<![\d,./])(?:90|9/)(\d{1,2})(?![\d,./])(\)?)(?=\s*(?:\S+\s+){0,2}?(?:من\s+(?:قيمة|المقاولة|العقد|الأعمال|مبلغ)|"
+    r"بالمائة|بالمئة|في\s+المائة|في\s+المئة))"
+)
+
+
+def repair_percentages(text: str) -> str:
+    repaired, count = _MISREAD_PERCENT.subn(lambda m: f"{m.group(1)}%{m.group(2)}", text)
+    if count:
+        logger.info("OCR percentages repaired: %s", count)
+    return repaired
+
+
 def _plausible_date(figure: str) -> bool:
     """A date with a real day and month; anything that is not a date passes («97/6/1981»
     was «7/6/1981» with a letter beside it read as a 9)."""
@@ -250,7 +268,7 @@ def read_page(page) -> str:
         pixmap = page.get_pixmap(dpi=RENDER_DPI)
         image = Image.open(io.BytesIO(pixmap.tobytes("png")))
         text = pytesseract.image_to_string(image, lang=LANGUAGES)
-        text = _recover_numbers(image, text)
+        text = repair_percentages(_recover_numbers(image, text))
     except Exception:  # noqa: BLE001
         logger.exception("OCR failed on page %s", getattr(page, "number", "?"))
         return ""
