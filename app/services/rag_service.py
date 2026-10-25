@@ -662,6 +662,10 @@ class RagService:
             decision = self.document_scope.resolve(request.question, among=allowed)
             if decision.ambiguous:
                 return self._ambiguous_document(decision, analysis, plan, timings)
+            if decision.several:
+                request = request.model_copy(update={"document_ids": [d.document_id for d in decision.several]})
+                plan.scope = " + ".join(d.filename for d in decision.several)
+                logger.info("Question compares %s; searching them", plan.scope)
             if decision.document is not None:
                 request = request.model_copy(update={"document_ids": [decision.document.document_id]})
                 plan.scope = decision.document.filename

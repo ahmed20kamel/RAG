@@ -82,6 +82,8 @@ class ScopeDecision:
     candidates: list[KnownDocument] = field(default_factory=list)
     #: The words of the question that named a document.
     named: str = ""
+    #: Several different documents, each named in full: a comparison, read from all of them.
+    several: list[KnownDocument] = field(default_factory=list)
 
     @property
     def ambiguous(self) -> bool:
@@ -215,6 +217,14 @@ class DocumentScope:
         if len(specific) == 1 and all(_contains(list(specific[0].base), list(d.base)) for d in matched):
             if any(len(d.base) < longest for d in matched):
                 return ScopeDecision(document=specific[0], named=named)
+
+        # 5. Different names, each stated in full: "between BOQ M24-17 and BOQ WITH CON FEES"
+        # compares two files. Asking which one was meant answered nothing (measured).
+        bases = [tuple(d.base) for d in matched]
+        if len(set(bases)) == len(bases) and not any(
+            a != b and _contains(list(a), list(b)) for a in bases for b in bases
+        ):
+            return ScopeDecision(several=matched, named=named)
 
         return ScopeDecision(candidates=sorted(matched, key=lambda d: d.uploaded), named=named)
 

@@ -54,6 +54,8 @@ def resolved(question: str) -> str:
     decision = SCOPE.resolve(question)
     if decision.ambiguous:
         return "ambiguous:" + ",".join(d.document_id for d in decision.candidates)
+    if decision.several:
+        return "several:" + ",".join(sorted(d.document_id for d in decision.several))
     return decision.document.document_id if decision.document else "all"
 
 
@@ -76,6 +78,8 @@ def names_are_resolved() -> None:
         "ما الذي انتهى إليه تقرير الخبرة النهائي بشأن سبب الانهيار؟": "all",
         "اقرأ ملف تقرير الخبرة النهائي وأجب منه": "report",
         "كم مدة تنفيذ فيلا ماجد الحمادي في جدول الكميات المعدل؟": "all",
+        # Two different files, both named: a comparison, read from both.
+        "ما الفرق بين FIDIC_Claims_Procedure و دليل_العمل_مطالبات_التأمين؟": "several:fidic,insurance",
         "ما أهم دفوع سافكوم في مذكرتها التعقيبية على تقرير الخبرة النهائي؟": "all",
         "ما اعتراض المدعية على تقرير الخبرة النهائي؟": "all",
     }
