@@ -41,8 +41,12 @@ RUNS = ROOT / "data" / "eval" / "runs"
 REPORT = ROOT / "data" / "reports" / "accuracy-latest.md"
 
 _DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
-_REFUSAL = re.compile(r"لا توجد معلومات|لم أجد|لم أتأكد|غير متوفر|لا تذكر المصادر|not enough information|could not find",
-                      re.IGNORECASE)
+_REFUSAL = re.compile(
+    r"لا توجد معلومات|لم أجد|لم أتأكد|غير متوفر|غير مذكور|غير محدد|لا تذكر|لا يذكر|لم تذكر|لم يذكر|لم يُذكر|لم تُذكر|"
+    r"لا يحدد|لا تحدد|لم يحدد|لم تحدد|لم يرد|لا يرد|not enough information|could not find|not stated|not specified|"
+    r"not mentioned|does not state|do not state",
+    re.IGNORECASE,
+)
 
 
 def _norm(text: str) -> str:
