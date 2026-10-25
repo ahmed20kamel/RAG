@@ -45,7 +45,7 @@ INTENT_CUES: tuple[tuple[Intent, tuple[str, ...]], ...] = (
     (Intent.PROCEDURE, ("اجراءات", "كيف", "خطوات", "procedure", "how do", "how to", "steps")),
     (Intent.REASON, ("لماذا", "سبب", "لماذا تعد", "why", "reason")),
     (Intent.DATE, ("متى", "تاريخ", "بتاريخ", "when", "date of")),
-    (Intent.NUMERIC, ("كم", "ما قيمة", "ما نسبة", "ما مبلغ", "ما عدد", "ما مقدار", "how much", "how many", "what is the value", "amount", "rate")),
+    (Intent.NUMERIC, ("كم", "بكم", "سعر", "تسعير", "ما قيمة", "ما نسبة", "ما مبلغ", "ما عدد", "ما مقدار", "how much", "how many", "what is the value", "amount", "rate")),
     (Intent.ENTITY, ("من هم", "من هو", "من هي", "من يمثل", "الاطراف", "who is", "who are", "which company", "parties")),
 )
 
@@ -102,6 +102,11 @@ EXHAUSTIVE_PATTERN = _phrase_pattern(EXHAUSTIVE_CUES)
 ROLE_PATTERN = _phrase_pattern(ROLE_CUES)
 
 TIME_INTERROGATIVE = _phrase_pattern(("متى", "when"))
+#: A date the question states, with the word that introduces it.
+GIVEN_DATE = re.compile(
+    r"(?:\bب?(?:ال)?تاريخ|\bالمؤرخ[ةه]?|\bمؤرخ[ةه]?|\bdated|\bdate)?\s*\(?\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}\)?",
+    re.IGNORECASE,
+)
 RANGE = re.compile(
     r"(?:^|\s)من\s+(?P<start>.+?)\s+(?:حتى|حتي|الى|إلى|لغايه|لغاية)\s+(?P<end>.+?)\s*[.؟?]*$"
     r"|(?:^|\s)from\s+(?P<start_en>.+?)\s+(?:to|until|till)\s+(?P<end_en>.+?)\s*[.?]*$"
@@ -345,8 +350,13 @@ class QueryAnalyzer:
         if TIME_INTERROGATIVE.search(normalized) and AGGREGATION_PATTERN.search(normalized):
             return Intent.TIMELINE
 
+        # A date written out in the question says which document or version is meant,
+        # not what is asked: "بكم تم تسعير بند الجسور في الـ BOQ المعدل بتاريخ 25-8-2025"
+        # asks a price. Read as a date question, it bound its answer to a date and
+        # returned "no direct answer" (measured).
+        asked = GIVEN_DATE.sub(" ", normalized)
         for intent, pattern in INTENT_PATTERNS:
-            if pattern.search(normalized):
+            if pattern.search(asked):
                 return intent
         return Intent.FACT
 
