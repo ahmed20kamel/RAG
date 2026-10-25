@@ -91,8 +91,20 @@ def keyword_kind(filename: str, title: str, text: str) -> str:
     return best if best_score >= 2 else ""
 
 
+#: Words that name no project by themselves: titles, "villa", "project", and the first
+#: names half the owners share. Measured: «ABDULLA AL HAJERI» matched «ABDULLA KHAMIS AL
+#: SHAMSI VILLA» on "abdulla" and "al" alone, and a payments file was filed under the
+#: wrong owner's villa.
+_GENERIC = {normalize(w) for w in (
+    "al", "el", "ال", "bin", "bint", "بن", "بنت", "mr", "mrs", "السيد", "السيده", "the", "of", "for", "and",
+    "villa", "فيلا", "فيلة", "project", "مشروع", "private", "خاصة", "سكنية", "residential", "house", "منزل",
+    "abdulla", "abdullah", "عبدالله", "عبد", "mohamed", "mohammed", "muhammad", "محمد", "ahmed", "احمد",
+    "ali", "علي", "saeed", "سعيد", "khalid", "خالد", "rashid", "راشد", "sultan", "سلطان", "hasan", "حسن",
+)}
+
+
 def _tokens(name: str) -> set[str]:
-    return {t for t in normalize(name).split() if len(t) > 1}
+    return {t for t in normalize(name).split() if len(t) > 1 and t not in _GENERIC}
 
 
 def match_project(name: str, existing: list[str]) -> str:

@@ -98,6 +98,13 @@ def main() -> int:
     check(match_project("فيلا  الواحة", existing) == "فيلا الواحة", "spacing does not make a new project")
     check(match_project("مدرسة الشامخة", existing) == "مدرسة الشامخة", "a genuinely new project gets its own name")
     check(match_project("", existing) == "", "no project named: none made up")
+    owners = ["ABDULLA KHAMIS AL SHAMSI VILLA", "Majed Al Hammadi"]
+    check(match_project("ABDULLA AL HAJERI", owners) == "ABDULLA AL HAJERI",
+          "a shared first name and 'Al' do not make another owner's project")
+    check(match_project("Abdulla Khamis Al Shamsi", owners) == "ABDULLA KHAMIS AL SHAMSI VILLA",
+          "the same owner's project is still found")
+    check(match_project("فيلا ماجد الحمادي", ["Majed Al Hammadi", "فيلا ماجد الحمادي"]) == "فيلا ماجد الحمادي",
+          "an exact name still matches")
 
     print("\n=== 3. reading the model's answer ===")
     check(parse_answer('```json\n{"type": "خطاب", "project": "x"}\n```')["type"] == "خطاب", "code fences are tolerated")
