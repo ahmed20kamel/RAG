@@ -76,6 +76,19 @@ def main() -> int:
     upright = [["البند", "الوحدة", "الكمية"], ["صيانة جدار", "متر", "35"]]
     check(logical_grid(upright) == upright, "a table already in reading order is left alone")
 
+    # A figure written as touching pieces (the damages report's total), and a date whose
+    # parts stand apart with slashes between them (word boxes as PyMuPDF gives them).
+    from app.parsers.arabic_pdf import _join_split_numbers
+
+    total = [[(514.5, 441.4, "420", 541.5)], [(510.0, 441.4, ",", 514.5)], [(492.0, 441.4, "50", 510.0)],
+             [(483.0, 441.4, "1", 492.0)], [(402.4, 441.4, "درهم إماراتي", 478.4)]]
+    joined = [g[0][2] for g in _join_split_numbers(total)]
+    check("150,420" in joined and "1" not in joined, "a figure split into touching pieces is one figure", str(joined))
+    date = [[(529.5, 551.3, "13", 541.5)], [(526.2, 551.3, "/", 529.5)], [(514.2, 551.3, "06", 526.2)],
+            [(510.8, 551.3, "/", 514.2)], [(486.8, 551.3, "2026", 510.8)]]
+    parts = [g[0][2] for g in _join_split_numbers(date)]
+    check("2026" in parts and "06" in parts and "13" in parts, "a date's parts are not joined into one number", str(parts))
+
     print()
     if FAILURES:
         print(f"{len(FAILURES)} FAILURE(S)")

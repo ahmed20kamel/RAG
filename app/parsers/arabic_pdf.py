@@ -86,14 +86,14 @@ def page_lines(page) -> list[dict]:
     # (block, line) is the layout unit; y is kept so the lines can be ordered down the page.
     grouped: dict[tuple[int, int], list[tuple]] = defaultdict(list)
     for word in words:
-        x0, y0, _x1, _y1, text, block, line, _no = word[:8]
+        x0, y0, x1, _y1, text, block, line, _no = word[:8]
         if text.strip():
-            grouped[(block, line)].append((x0, y0, text))
+            grouped[(block, line)].append((x0, y0, text, x1))
 
     styles = _styles_by_position(page)
 
     lines: list[dict] = []
-    for parts in grouped.values():
+    for parts in _join_split_numbers(list(grouped.values())):
         top = min(p[1] for p in parts)
         left = min(p[0] for p in parts)
         joined = " ".join(p[2] for p in parts)
@@ -127,6 +127,41 @@ def page_lines(page) -> list[dict]:
         )
     )
     return lines
+
+
+#: A piece of a figure: digits, or the separators between them.
+_NUMBER_PIECE = re.compile(r"^[\d.,٫٬]+$")
+#: Pieces of one figure touch (measured: a gap of 0). A date's parts are 3 points apart
+#: with a slash between them, and stay apart.
+NUMBER_GAP = 1.0
+
+
+def _join_split_numbers(groups: list[list[tuple]]) -> list[list[tuple]]:
+    """A figure the PDF wrote as separate pieces, put back together.
+
+    Measured on a damages report: its grand total, «150,420», was written as four words in
+    four layout lines — «1», «50», «,» and «420». Read apart, the lone «1» matched a
+    quantity of 1 in the page's table and was dropped as already covered, and the total
+    became «50,420». Pieces on the same line that touch are joined, left to right as
+    figures are written, into one.
+    """
+    pieces = [g for g in groups if all(_NUMBER_PIECE.match(p[2]) for p in g)]
+    if len(pieces) < 2:
+        return groups
+    pieces.sort(key=lambda g: (_row(min(p[1] for p in g)), min(p[0] for p in g)))
+    joined: list[list[tuple]] = []
+    for group in pieces:
+        left, top = min(p[0] for p in group), min(p[1] for p in group)
+        if joined:
+            last = joined[-1][0]
+            if abs(last[1] - top) <= LINE_TOLERANCE and 0 <= left - last[3] <= NUMBER_GAP:
+                text = last[2] + "".join(p[2] for p in sorted(group, key=lambda p: p[0]))
+                joined[-1] = [(last[0], last[1], text, max(p[3] for p in group))]
+                continue
+        ordered = sorted(group, key=lambda p: p[0])
+        joined.append([(left, top, "".join(p[2] for p in ordered), max(p[3] for p in group))])
+    others = [g for g in groups if not all(_NUMBER_PIECE.match(p[2]) for p in g)]
+    return others + joined
 
 
 def _row(top: float) -> int:
