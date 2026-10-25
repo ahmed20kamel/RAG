@@ -145,10 +145,43 @@ def reread_all_pdfs(container) -> None:
     _mark(name, "\n".join(names) or "none")
 
 
+#: A document in one of these when the server starts was being read when it stopped.
+IN_PROGRESS = ("uploaded", "validating", "parsing", "analyzing", "chunking", "embedding", "indexing")
+
+
+def resume_interrupted(container) -> None:
+    """At every start: documents the last run left half-read are read again.
+
+    Measured on Rag-pc: the server stopped while reading 73 files, and they stayed
+    "parsing" and "uploaded" for good. Nothing reads a document again unless it is
+    scheduled, and its schedule died with the process that held it.
+    """
+    from sqlalchemy import select
+
+    from app.models.database import session_scope
+    from app.models.document import Document
+
+    with session_scope() as session:
+        stuck = list(session.scalars(select(Document).where(Document.status.in_(IN_PROGRESS))))
+        resumed = 0
+        for document in stuck:
+            try:
+                container.document_service.reindex(session, document.id)
+                resumed += 1
+            except Exception:  # noqa: BLE001 - one missing file does not stop the rest
+                logger.exception("Could not resume %s", document.filename)
+    if stuck:
+        logger.info("Resuming %s of %s document(s) whose reading was interrupted", resumed, len(stuck))
+
+
 def run_pending(container) -> None:
     """In the background: startup is not held for it, and a failure is logged and tried
     again at the next start rather than stopping the server."""
     def work() -> None:
+        try:
+            resume_interrupted(container)
+        except Exception:  # noqa: BLE001
+            logger.exception("Could not resume interrupted documents")
         try:
             reread_damaged_pdfs(container)
         except Exception:  # noqa: BLE001
