@@ -1510,15 +1510,6 @@ class RagService:
                 candidates = first + [c for c in candidates if c.chunk_id not in seen]
                 plan.scope = plan.scope or "مشروع: " + "، ".join(projects)
                 logger.info("Question names project %s; its files searched first", projects)
-        if not chose_files and self.document_scope is not None:
-            hinted = self.document_scope.hinted(request.question, among=allowed)
-            if hinted:
-                first = self.retriever.retrieve(
-                    analysis, top_k=request.top_k, category=request.category, document_ids=hinted,
-                )
-                seen = {c.chunk_id for c in first}
-                candidates = first + [c for c in candidates if c.chunk_id not in seen]
-                logger.info("Question points at %s file(s) by name; searched first", len(hinted))
         for candidate in candidates:
             candidate.project = scope.project(candidate.document_id)
         return candidates

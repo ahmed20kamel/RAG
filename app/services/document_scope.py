@@ -45,9 +45,6 @@ _VERSION = re.compile(r"^(?:v\d+|\d+|rev\d*|r\d+)$")
 _REFERENCE_FILLER = {"رفع", "الملف", "ملف", "file", "uploaded", "project", "unified", "stream", "md"}
 MIN_NAME_TOKENS = 2
 MIN_SINGLE_TOKEN = 6
-#: A loose pointer to a file: name words this long, carried by this many files or fewer.
-HINT_MIN_WORD = 4
-HINT_MAX_FILES = 4
 #: A question that compares: a file it names is read with its other versions.
 COMPARISON = re.compile(r"الفرق|فرق|مقارنه|قارن|بين .* و|versus|\bvs\b|difference|compare|differ|changed|تغير|تغيرت|يضيف|تضيف")
 
@@ -167,38 +164,6 @@ class DocumentScope:
                         logger.exception("Could not read the document list for scoping")
                     self._loaded_at = time.monotonic()
         return self._documents
-
-    def hinted(self, question: str, among: list[str] | None = None) -> list[str]:
-        """Files the question points at loosely — some words of the name, in any order:
-        "عقد التأسيس Memorandum of Association", "Al Yafour's audited financials", "the
-        Bucomac quote". Not enough to search them alone (that is `resolve`), enough to
-        search them first: measured, such questions were answered from other files, or
-        not at all, while the named file held the answer.
-
-        A word counts when it is in the name, is not a document kind ("contract", "BOQ",
-        "drawing"), and is carried by few files — a name, a party, a subject.
-        """
-        documents = self.documents()
-        if among is not None:
-            allowed = set(among)
-            documents = [d for d in documents if d.document_id in allowed]
-        if not documents:
-            return []
-        kinds = {normalize(w).lower() for w in _DOCUMENT_KIND_WORDS}
-        asked = {w for w in _tokens(question) if len(w) >= HINT_MIN_WORD and not w.isdigit() and w not in kinds}
-        if not asked:
-            return []
-        carriers: dict[str, int] = {}
-        for doc in documents:
-            for word in set(doc.name) & asked:
-                carriers[word] = carriers.get(word, 0) + 1
-        rare = {w for w, n in carriers.items() if n <= HINT_MAX_FILES}
-        if not rare:
-            return []
-        scored = [(len(set(doc.name) & rare), doc.document_id) for doc in documents]
-        best = max(score for score, _ in scored)
-        hinted = [document_id for score, document_id in scored if score == best and score > 0]
-        return hinted if len(hinted) <= HINT_MAX_FILES else []
 
     def resolve(self, question: str, among: list[str] | None = None) -> ScopeDecision:
         """`among` limits the names considered to the documents this reader may see: a
