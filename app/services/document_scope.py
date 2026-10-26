@@ -194,7 +194,7 @@ class DocumentScope:
         # that the memo was not in the sources.
         matched = [d for d in documents if _names(d.base) and _contains(words, list(d.base))
                    and not _about_it(words, list(d.base))
-                   and (_distinctive(d.base) or _pointed_at(question, words, d))]
+                   and ((_distinctive(d.base) and len(d.base) >= 2) or _pointed_at(question, words, d))]
         # A title that no other document carries names its document too.
         for doc in documents:
             title = tuple(_tokens(doc.title))

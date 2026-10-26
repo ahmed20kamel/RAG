@@ -46,6 +46,7 @@ DOCUMENTS = [
     known("short", "CP4-MC.pdf", "", "21/09/2026"),
     known("unique", "notes.md", "سجل الاجتماعات الأسبوعية للمشروع", "21/09/2026"),
     known("report", "تقرير الخبرة النهائي .pdf", "تقرير الخبرة النهائي", "05/10/2026"),
+    known("company", "اليافور.pdf", "", "05/10/2026"),
 ]
 SCOPE = DocumentScope(loader=lambda: DOCUMENTS, refresh_seconds=3600)
 
@@ -78,6 +79,10 @@ def names_are_resolved() -> None:
         "ما الذي انتهى إليه تقرير الخبرة النهائي بشأن سبب الانهيار؟": "all",
         "اقرأ ملف تقرير الخبرة النهائي وأجب منه": "report",
         "كم مدة تنفيذ فيلا ماجد الحمادي في جدول الكميات المعدل؟": "all",
+        # A file named with one word — here the company's own name — is in every question:
+        # it narrows the search only when pointed at.
+        "ما صلاحيات المدير العام في عقد تأسيس شركة اليافور؟": "all",
+        "اقرأ ملف اليافور وأجب منه": "company",
         # Two different files, both named: a comparison, read from both.
         "ما الفرق بين FIDIC_Claims_Procedure و دليل_العمل_مطالبات_التأمين؟": "several:fidic,insurance",
         "ما أهم دفوع سافكوم في مذكرتها التعقيبية على تقرير الخبرة النهائي؟": "all",
