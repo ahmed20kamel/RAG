@@ -46,7 +46,7 @@ _REFERENCE_FILLER = {"رفع", "الملف", "ملف", "file", "uploaded", "proj
 MIN_NAME_TOKENS = 2
 MIN_SINGLE_TOKEN = 6
 #: A question that compares: a file it names is read with its other versions.
-COMPARISON = re.compile(r"الفرق|فرق|مقارنه|قارن|بين .* و|versus|\bvs\b|difference|compare|differ|changed|تغير|تغيرت|يضيف|تضيف")
+COMPARISON = re.compile(r"الفرق|فرق|مقارنه|قارن|بين .* و|versus|\bvs\b|difference|compare|differ|changed|تغير|تغيرت|يضيف|تضيف|يميز|تميز|يختلف|تختلف|مقابل")
 
 
 def _tokens(text: str) -> list[str]:
@@ -184,7 +184,8 @@ class DocumentScope:
         # 1. A full filename, extension included, names exactly that file.
         exact = [d for d in documents if _contains(words, list(d.name) + ([d.extension] if d.extension else []))
                  and d.extension]
-        if len(exact) == 1:
+        comparing = bool(COMPARISON.search(normalize(question).lower()))
+        if len(exact) == 1 and not comparing:
             return ScopeDecision(document=exact[0], named=exact[0].filename)
 
         # 2. The base name — what versions of a document share. Not when the question
@@ -200,6 +201,10 @@ class DocumentScope:
             if (doc not in matched and len(title) >= 3 and titles_seen.get(title) == 1 and _contains(words, list(title))
                     and not _about_it(words, list(title)) and _distinctive(title)):
                 matched.append(doc)
+        # A comparison keeps the file it names in full beside the ones it names loosely:
+        # "DRAINAGE DRAWING_signed و DRAINAGE.pdf" searched DRAINAGE.pdf alone (measured).
+        if comparing:
+            matched = list(dict.fromkeys(exact + matched))
         if not matched:
             return ScopeDecision()
 
@@ -207,11 +212,11 @@ class DocumentScope:
         # A comparison of a file with its other version: "what does the signed CAMERA
         # DRAWING add over the unsigned one?" names one file and means two. Measured: the
         # signed copy alone was searched, and the answer said there was nothing to compare.
-        if COMPARISON.search(normalize(question).lower()):
+        if comparing:
             siblings = [d for d in documents if d not in matched and any(
                 _contains(list(d.base), list(m.base)) or _contains(list(m.base), list(d.base)) for m in matched
             ) and len(d.base) >= 2]
-            if siblings:
+            if siblings or len(matched) > 1:
                 return ScopeDecision(several=matched + siblings, named=named)
         if len(matched) == 1:
             return ScopeDecision(document=matched[0], named=named)

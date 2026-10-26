@@ -258,6 +258,8 @@ RARE_PASSAGES = 4
 RARE_AFTER = 3
 #: The files of this many leading passages are searched for the rare words.
 RARE_FILES = 5
+#: In a comparison of files, the fewest passages each file is given.
+COMPARE_MIN_SHARE = 5
 
 PART_NOT_FOUND = "لم أجد في المصادر المرسلة ما يجيب عن هذا الجزء."
 PART_NOT_FOUND_EN = "The sources provided do not answer this part."
@@ -670,12 +672,14 @@ class RagService:
         # Only the documents this reader may see are searched or named: their own, or
         # every document for whoever may read them all.
         allowed = access.visible_ids(user)
+        compared: list[str] = []
         if not request.document_ids and self.document_scope is not None:
             decision = self.document_scope.resolve(request.question, among=allowed)
             if decision.ambiguous:
                 return self._ambiguous_document(decision, analysis, plan, timings)
             if decision.several:
-                request = request.model_copy(update={"document_ids": [d.document_id for d in decision.several]})
+                compared = [d.document_id for d in decision.several]
+                request = request.model_copy(update={"document_ids": compared})
                 plan.scope = " + ".join(d.filename for d in decision.several)
                 logger.info("Question compares %s; searching them", plan.scope)
             if decision.document is not None:
@@ -703,6 +707,7 @@ class RagService:
             category=request.category,
             document_ids=request.document_ids,
         )
+        candidates = self._side_by_side(analysis, request, candidates, compared)
         candidates = self._with_named_project(request, analysis, candidates, chose_files, allowed, plan)
         candidates = self._with_rare_terms(request, analysis, candidates, allowed)
         timings["retrieval_ms"] = self._elapsed_ms(retrieval_started)
@@ -1486,6 +1491,26 @@ class RagService:
         present = {c.chunk_id for c in candidates}
         header = [self.retriever._from_record(row) for row in rows if row.chunk_id not in present]
         return header + candidates
+
+    def _side_by_side(self, analysis, request, candidates: list, compared: list[str]) -> list:
+        """Files compared with each other, each searched on its own and taken in turn.
+
+        Searched together, the file with more to say took every place: measured on the
+        drawings, "what does the signed copy add over the unsigned one?" returned sixteen
+        passages of the signed copy, and the answer said there was no second file.
+        """
+        if len(compared) < 2:
+            return candidates
+        share = max(COMPARE_MIN_SHARE, (request.top_k or getattr(self.retriever, "top_k", 16)) // len(compared))
+        sides = [self.retriever.retrieve(analysis, top_k=share, category=request.category, document_ids=[d])
+                 for d in compared]
+        taken, seen = [], set()
+        for turn in range(max((len(side) for side in sides), default=0)):
+            for side in sides:
+                if turn < len(side) and side[turn].chunk_id not in seen:
+                    taken.append(side[turn])
+                    seen.add(side[turn].chunk_id)
+        return taken + [c for c in candidates if c.chunk_id not in seen]
 
     def _with_named_project(self, request, analysis, candidates: list, chose_files: bool, allowed, plan) -> list:
         """The project the question names searched first, everything else after it; and
