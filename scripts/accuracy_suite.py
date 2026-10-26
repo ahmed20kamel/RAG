@@ -43,7 +43,8 @@ REPORT = ROOT / "data" / "reports" / "accuracy-latest.md"
 _DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
 _REFUSAL = re.compile(
     r"لا توجد معلومات|لم أجد|لم أتأكد|غير متوفر|غير مذكور|غير محدد|لا تذكر|لا يذكر|لم تذكر|لم يذكر|لم يُذكر|لم تُذكر|"
-    r"لا يحدد|لا تحدد|لم يحدد|لم تحدد|لم يرد|لا يرد|not enough information|could not find|not stated|not specified|"
+    r"لا يحدد|لا تحدد|لم يحدد|لم تحدد|لم يرد|لا يرد|لم يحكم|لم يُحكم|لا يوجد في المصادر|لا يوجد في الملفات|فارغة|فارغتان|"
+    r"not enough information|could not find|not stated|not specified|"
     r"not mentioned|does not state|do not state",
     re.IGNORECASE,
 )
@@ -56,10 +57,33 @@ def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", text).lower()
 
 
+_DATE = re.compile(r"(\d{1,4})\s*[-/.]\s*(\d{1,2})\s*[-/.]\s*(\d{1,4})")
+
+
+def _dates(text: str) -> set[tuple[int, int, int]]:
+    """Every date in the text as (year, month, day), however it is written:
+    2026/08/13, 13-08-2026 and «2026 / 08 / 13» are one date."""
+    found = set()
+    for a, b, c in _DATE.findall(text.translate(_DIGITS)):
+        if len(a) == 4:
+            year, month, day = int(a), int(b), int(c)
+        elif len(c) == 4:
+            year, month, day = int(c), int(b), int(a)
+        else:
+            continue
+        if 1 <= month <= 12 and 1 <= day <= 31:
+            found.add((year, month, day))
+    return found
+
+
 def _has(answer: str, fact: str) -> bool:
-    """A fact is in the answer: as written, or as the same figure without separators."""
+    """A fact is in the answer: as written, as the same figure without separators, or as
+    the same date in another format."""
     plain = _norm(answer)
     if _norm(fact) in plain:
+        return True
+    wanted = _dates(fact)
+    if wanted and wanted <= _dates(answer):
         return True
     figure = fact.replace(",", "")
     if re.fullmatch(r"[\d.]+", figure):

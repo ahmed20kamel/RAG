@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 import time
 import uuid
 from collections import Counter
@@ -59,6 +60,9 @@ from app.services.sensitive import redact
 from app.services.web_search import WebSearchService
 
 logger = logging.getLogger(__name__)
+
+#: Set while an answer is being looked for a second time, so the second look is the last.
+_SECOND_LOOK = threading.local()
 
 INSUFFICIENT_ANSWER = "لا توجد معلومات كافية في قاعدة المعرفة للإجابة عن هذا السؤال."
 
@@ -804,6 +808,20 @@ class RagService:
         timings["generation_ms"] = self._elapsed_ms(generation_started)
 
         grounded = not self._is_refusal(answer)
+        if not grounded and not getattr(_SECOND_LOOK, "active", False) and not chose_files:
+            # A second, wider look before giving up. Measured on the company's questions:
+            # most refusals were of answers the files hold, in a passage the first search
+            # ranked just below the cut — so more passages, and the rarest words sought in
+            # every file rather than only in the files the first search settled on.
+            logger.info("Model found no answer; a second, wider search before refusing")
+            _SECOND_LOOK.active = True
+            try:
+                wider = request.model_copy(update={"top_k": max(getattr(self.retriever, "wide_top_k", 24), (request.top_k or 0) * 2)})
+                second = self._answer(wider, user)
+            finally:
+                _SECOND_LOOK.active = False
+            if second.grounded:
+                return second
         if not grounded:
             # One chance to say what the question probably meant, before refusing.
             clarified = self._clarify(analysis, context, sources, timings)
@@ -1492,6 +1510,15 @@ class RagService:
                 candidates = first + [c for c in candidates if c.chunk_id not in seen]
                 plan.scope = plan.scope or "مشروع: " + "، ".join(projects)
                 logger.info("Question names project %s; its files searched first", projects)
+        if not chose_files and self.document_scope is not None:
+            hinted = self.document_scope.hinted(request.question, among=allowed)
+            if hinted:
+                first = self.retriever.retrieve(
+                    analysis, top_k=request.top_k, category=request.category, document_ids=hinted,
+                )
+                seen = {c.chunk_id for c in first}
+                candidates = first + [c for c in candidates if c.chunk_id not in seen]
+                logger.info("Question points at %s file(s) by name; searched first", len(hinted))
         for candidate in candidates:
             candidate.project = scope.project(candidate.document_id)
         return candidates
@@ -1513,8 +1540,11 @@ class RagService:
             return candidates
         # Inside the files the search already settled on: it found the right file and
         # missed the row in it. Searched everywhere, "جسور" found the specifications'
-        # paragraphs about beams before the BOQ's priced row.
+        # paragraphs about beams before the BOQ's priced row. On the second look, when
+        # those files did not hold the answer, everywhere the reader may look.
         within = list(dict.fromkeys(c.document_id for c in candidates[:RARE_FILES]))
+        if getattr(_SECOND_LOOK, "active", False):
+            within = list(allowed) if allowed is not None else None
         scope = getattr(self, "project_scope", None)
         hits = index.search(" ".join(terms), limit=RARE_PASSAGES * 3, document_ids=within)
         present = {c.chunk_id for c in candidates}

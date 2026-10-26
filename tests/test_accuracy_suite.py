@@ -34,6 +34,12 @@ def main() -> int:
     check(judge({"kind": "fact", "facts": [["المدعى عليها"]]}, "المدعي عليها هي سافكوم", [])["ok"],
           "spelling variants of the same word count")
 
+    dated = {"kind": "date", "facts": [["2026-08-13"]]}
+    check(judge(dated, "صدر الحكم بتاريخ 2026/08/13", [])["ok"], "the same date written y/m/d counts")
+    check(judge(dated, "صدر الحكم في 13/08/2026", [])["ok"], "and d/m/y")
+    check(judge(dated, "التاريخ : 2026 / 08 / 13", [])["ok"], "and with spaces")
+    check(not judge(dated, "صدر الحكم في 2026/08/31", [])["ok"], "another date does not")
+
     absent = {"kind": "absent", "facts": []}
     check(judge(absent, "لا توجد معلومات كافية في قاعدة المعرفة للإجابة عن هذا السؤال.", [])["ok"],
           "a refusal is right for a question no file answers")
